@@ -185,7 +185,7 @@ const DB = {
 /* ---------------- state ---------------- */
 const defaultState = () => ({
   version: 1,
-  settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, lpIn: '', lpOut: '' },
+  settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, keepAlive: true, silentUri: 'spotify:track:3mkOlbSv5RYadx0JsjTrKq', lpIn: '', lpOut: '' },
   groups: [{ id: uid(), name: 'Match' }],
   tiles: [],
   curGroup: null,
@@ -194,7 +194,7 @@ let S = defaultState();
 let editMode = false;
 let lpPage = 0;          // Launchpad page within current group
 let saveTimer = null;
-function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => DB.put('kv', 'state', S).catch(e => console.error(e)), 250); }
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { DB.put('kv', 'state', S).catch(e => console.error(e)); Sync.schedule(); }, 250); }
 function group(id) { return S.groups.find(g => g.id === id); }
 function curGroup() { return group(S.curGroup) || S.groups[0]; }
 function tilesOf(gid) { return S.tiles.filter(t => t.groupId === gid).sort((a, b) => a.order - b.order); }
@@ -353,6 +353,7 @@ const Engine = {
   },
 
   async playMusic(t, opts = {}) {
+    Idle.on = false;
     const prev = this.cur;
     const myToken = this.token = (this.token || 0) + 1;
     // fade out whatever plays (quick, so the new song starts promptly)
@@ -435,6 +436,7 @@ const Engine = {
   },
 
   onSpotifyState(st) {
+    Idle.onState(st);
     const c = this.cur; if (!c || c.kind !== 'spotify' || !st) return;
     const tr = st.track_window && st.track_window.current_track;
     const uriOk = tr && (tr.uri === c.tile.uri || (tr.linked_from && tr.linked_from.uri === c.tile.uri));
@@ -493,7 +495,28 @@ const Engine = {
     this.playMusic(t);
   },
 };
-setInterval(() => Engine.tick(), 100);
+/* ---------------- silent keep-alive track ----------------
+   Like Sports Audio DJ: while nothing plays, loop a silent Spotify track so the
+   JBL never falls asleep (no clipped song starts) and the Spotify player stays active. */
+const Idle = {
+  on: false, since: 0, idleAt: 0, busy: false,
+  get enabled() { return S.settings.keepAlive && SP.ready && SP.activated; },
+  async start() {
+    if (this.busy || Engine.cur) return; this.busy = true;
+    try { await SP.setVol(Math.max(0.05, S.settings.musicVol / 100)); await SP.play(S.settings.silentUri || 'spotify:track:3mkOlbSv5RYadx0JsjTrKq', 0); this.on = true; this.since = performance.now(); }
+    catch (e) { console.warn('silent track', e); this.idleAt = performance.now() + 20000; } // retry later
+    this.busy = false;
+  },
+  tick() {
+    if (Engine.cur) { this.on = false; this.idleAt = 0; return; }
+    if (!this.enabled) return;
+    const now = performance.now(); if (!this.idleAt) this.idleAt = now;
+    if (!this.on && now - this.idleAt > 1500) this.start();
+    else if (this.on && now - this.since > 9 * 60 * 1000) { this.on = false; this.start(); }
+  },
+  onState(st) { if (!Engine.cur && this.on && st && st.paused && !this.busy && performance.now() - this.since > 3000) { this.on = false; this.idleAt = performance.now(); } },
+};
+setInterval(() => { Engine.tick(); Idle.tick(); }, 100);
 
 /* ---------------- custom triggers (any MIDI button or keyboard key) ---------------- */
 // key format: 'm|<port name>|n<ch>|<note>' or 'm|<port name>|c<ch>|<cc>' or 'k|<KeyboardEvent.code>'
@@ -906,11 +929,17 @@ function openSettings() {
   <label>Standard uttoning <b id="sFoV">${st.fadeOut} s</b></label><input type="range" id="sFo" min="0" max="10" step="0.5" value="${st.fadeOut}">
   <label>Standard intoning <b id="sFiV">${st.fadeIn} s</b></label><input type="range" id="sFi" min="0" max="10" step="0.5" value="${st.fadeIn}">
   <div class="kv"><span>Markera spelade låtar</span><input type="checkbox" id="sMark" ${st.markPlayed ? 'checked' : ''}></div>
+  <div class="kv"><span>Håll högtalaren vaken (tyst Spotify-spår när inget spelas)</span><input type="checkbox" id="sAlive" ${st.keepAlive ? 'checked' : ''}></div>
   <div class="kv"><span>Håll skärmen tänd</span><input type="checkbox" id="sAwake" ${st.keepAwake ? 'checked' : ''}></div>
   <div class="row" style="margin-top:10px"><button id="sResetG">Nollställ spelade i ${esc(curGroup().name)}</button><button id="sResetAll">Nollställ alla</button></div>
   <h3>Grupper</h3>
   <div class="list">${S.groups.map((g, i) => `<div class="li"><div class="m"><b>${esc(g.name)}</b><small>${tilesOf(g.id).length} rutor${i < 7 ? ' · Launchpad-knapp ' + (i + 1) : ''}</small></div><button data-gu="${g.id}">▲</button><button data-gr="${g.id}">Byt namn</button><button data-gd="${g.id}">✕</button></div>`).join('')}</div>
   <button style="width:100%;margin-top:8px" id="sAddG">＋ Ny grupp</button>
+  <h3>Synk mellan enheter</h3>
+  <p class="hint">Samma setup på mobilen, surfplattan och datorn. Sparas i ett privat GitHub-repo. Fyll i samma två fält på varje enhet.</p>
+  <label>Repo</label><input id="syRepo" value="${esc(Sync.repo)}" placeholder="craler/matchljud-data" autocomplete="off">
+  <label>Token</label><input id="syTok" type="password" value="${esc(Sync.token)}" placeholder="github_pat_…" autocomplete="off">
+  <div class="kv"><span id="syStat">${esc(Sync.status || (Sync.on ? 'Påslagen' : 'Av'))}</span><button id="syNow">Synka nu</button></div>
   <h3>Backup</h3>
   <p class="hint">Importera en Sports Audio DJ-backup (.sadj) eller en backup från den här appen (.json). Import ersätter allt som finns nu.</p>
   <div class="row"><button id="sImp">Importera backup</button><button id="sExp">Exportera backup</button></div>
@@ -932,6 +961,10 @@ function openSettings() {
   document.querySelectorAll('[data-gr]').forEach(b => b.onclick = () => { const g = group(b.dataset.gr); const n = prompt('Nytt namn', g.name); if (n) { g.name = n.trim(); save(); renderAllTiles(); openSettings(); } });
   document.querySelectorAll('[data-gd]').forEach(b => b.onclick = () => { const g = group(b.dataset.gd); if (S.groups.length < 2) return toast('Minst en grupp behövs'); if (!confirm('Ta bort gruppen "' + g.name + '" och alla dess rutor?')) return; S.tiles = S.tiles.filter(t => t.groupId !== g.id); S.groups = S.groups.filter(x => x !== g); if (S.curGroup === g.id) S.curGroup = S.groups[0].id; save(); renderAllTiles(); LP.paintAll(); openSettings(); });
   $('#sAddG').onclick = () => { const n = prompt('Namn på gruppen'); if (n) { const g = { id: uid(), name: n.trim() }; S.groups.push(g); S.curGroup = g.id; save(); renderAllTiles(); LP.paintAll(); openSettings(); } };
+  $('#sAlive').onchange = e => { st.keepAlive = e.target.checked; save(); if (!st.keepAlive && Idle.on && !Engine.cur) { Idle.on = false; SP.pause(); } };
+  $('#syRepo').onchange = e => { Sync.repo = e.target.value; localStorage.removeItem('sy_sha'); localStorage.removeItem('sy_audio'); };
+  $('#syTok').onchange = e => { Sync.token = e.target.value; };
+  $('#syNow').onclick = async () => { Sync.repo = $('#syRepo').value; Sync.token = $('#syTok').value; await Sync.pull(true); };
   $('#sImp').onclick = () => $('#fileImport').click();
   $('#sExp').onclick = exportBackup;
 }
@@ -996,7 +1029,7 @@ async function applyImport({ st, audio, missing }) {
   await Engine.stopAll();
   await DB.clear('audio'); for (const [k, b] of Object.entries(audio)) await DB.put('audio', k, b);
   AudioL.buffers.clear(); S = st; await DB.put('kv', 'state', S);
-  lpPage = 0; renderAllTiles(); LP.paintAll(); AudioL.preload();
+  lpPage = 0; renderAllTiles(); LP.paintAll(); AudioL.preload(); Sync.schedule();
   toast(`Importerat: ${S.groups.length} grupper, ${S.tiles.length} rutor` + (missing ? ` (${missing} saknades)` : ''), 4000);
 }
 $('#fileImport').onchange = async e => {
@@ -1018,6 +1051,96 @@ async function exportBackup() {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
+/* ---------------- sync between devices (private GitHub repo) ---------------- */
+const Sync = {
+  get repo() { return localStorage.getItem('sy_repo') || ''; }, set repo(v) { localStorage.setItem('sy_repo', v.trim().replace(/^https:\/\/github.com\//, '').replace(/\/$/, '')); },
+  get token() { return localStorage.getItem('sy_tok') || ''; }, set token(v) { localStorage.setItem('sy_tok', v.trim()); },
+  get on() { return !!(this.repo && this.token); },
+  status: '', timer: null, busy: false, applying: false,
+  hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); },
+  shared() {
+    const st = S.settings;
+    return { app: 'matchljud', version: 1, spClient: SP.clientId, groups: S.groups,
+      tiles: S.tiles.map(({ played, ...r }) => r),
+      settings: { fadeOut: st.fadeOut, fadeIn: st.fadeIn, musicVol: st.musicVol, sfxVol: st.sfxVol, markPlayed: st.markPlayed, keepAlive: st.keepAlive, silentUri: st.silentUri } };
+  },
+  localHash() { return this.hash(JSON.stringify(this.shared())); },
+  setStatus(m) { this.status = m; const el = $('#syStat'); if (el) el.textContent = m; },
+  async gh(path, opt = {}, raw) {
+    const r = await fetch('https://api.github.com/repos/' + this.repo + '/contents/' + path, { ...opt, cache: 'no-store',
+      headers: { Authorization: 'Bearer ' + this.token, Accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opt.headers || {}) } });
+    return r;
+  },
+  b64enc(str) { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); },
+  b64dec(b64) { const bin = atob(b64.replace(/\n/g, '')); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder().decode(u); },
+  schedule() { if (!this.on || this.applying) return; clearTimeout(this.timer); this.timer = setTimeout(() => this.push(), 4000); },
+  async pull(manual) {
+    if (!this.on || this.busy) return; this.busy = true;
+    try {
+      this.setStatus('Hämtar…');
+      const r = await this.gh('setup.json');
+      if (r.status === 404) { this.busy = false; this.setStatus('Ingen sparad setup än — laddar upp'); return this.push(true); }
+      if (!r.ok) throw new Error(r.status === 401 ? 'fel token' : r.status === 403 ? 'token saknar behörighet' : 'GitHub ' + r.status);
+      const j = await r.json();
+      const dirty = this.localHash() !== localStorage.getItem('sy_hash');
+      if (j.sha === localStorage.getItem('sy_sha')) { this.busy = false; if (dirty) return this.push(); this.setStatus('Synkad ✓'); return; }
+      if (dirty && S.tiles.length && !confirm('Din setup har ändrats på en annan enhet, och även här.\n\nOK = hämta den andra enhetens version (ändringar här skrivs över)\nAvbryt = behåll den här och skriv över den andra')) {
+        localStorage.setItem('sy_sha', j.sha); this.busy = false; return this.push(true);
+      }
+      await this.apply(JSON.parse(this.b64dec(j.content)), j.sha);
+      this.setStatus('Synkad ✓ (hämtade ändringar)');
+      if (!manual) toast('Setup synkad från din andra enhet');
+    } catch (e) { console.warn(e); this.setStatus('Synk-fel: ' + e.message); if (manual) toast('Synk-fel: ' + e.message, 4000); }
+    this.busy = false;
+  },
+  async apply(rem, sha) {
+    this.applying = true;
+    const played = new Map(S.tiles.map(t => [t.id, t.played]));
+    S.groups = rem.groups || S.groups;
+    S.tiles = (rem.tiles || []).map(t => ({ ...t, played: !!played.get(t.id) }));
+    S.settings = { ...S.settings, ...(rem.settings || {}) };
+    if (rem.spClient && !SP.clientId) SP.clientId = rem.spClient;
+    if (!group(S.curGroup)) S.curGroup = S.groups[0] && S.groups[0].id;
+    // fetch sound files this device doesn't have yet
+    const have = new Set(await DB.keys('audio'));
+    const up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
+    for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {
+      up.add(id); // exists remotely
+      if (have.has(id)) continue;
+      const r = await this.gh('audio/' + id, {}, true); if (r.ok) { await DB.put('audio', id, await r.blob()); AudioL.buffers.delete(id); }
+    }
+    localStorage.setItem('sy_audio', JSON.stringify([...up]));
+    await DB.put('kv', 'state', S);
+    localStorage.setItem('sy_sha', sha); localStorage.setItem('sy_hash', this.localHash());
+    renderAllTiles(); LP.paintAll(); AudioL.preload();
+    this.applying = false;
+  },
+  async push(force) {
+    if (!this.on || this.busy) return;
+    const h = this.localHash(); if (!force && h === localStorage.getItem('sy_hash')) return;
+    this.busy = true; this.setStatus('Sparar…');
+    try {
+      // sound files first (only ones not uploaded before)
+      const up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
+      for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {
+        if (up.has(id)) continue; const b = await DB.get('audio', id); if (!b) continue;
+        const data = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(b); });
+        const r = await this.gh('audio/' + id, { method: 'PUT', body: JSON.stringify({ message: 'ljud ' + id, content: data }) });
+        if (r.ok || r.status === 422 || r.status === 409) up.add(id); else throw new Error('ljuduppladdning ' + r.status);
+        localStorage.setItem('sy_audio', JSON.stringify([...up]));
+      }
+      const body = { message: 'setup ' + new Date().toISOString(), content: this.b64enc(JSON.stringify(this.shared(), null, 1)) };
+      const sha = localStorage.getItem('sy_sha'); if (sha) body.sha = sha;
+      const r = await this.gh('setup.json', { method: 'PUT', body: JSON.stringify(body) });
+      if (r.status === 409 || r.status === 422) { this.busy = false; localStorage.removeItem('sy_hash'); return this.pull(true); } // someone else saved first
+      if (!r.ok) throw new Error(r.status === 401 ? 'fel token' : r.status === 403 || r.status === 404 ? 'token saknar skrivbehörighet' : 'GitHub ' + r.status);
+      const j = await r.json(); localStorage.setItem('sy_sha', j.content.sha); localStorage.setItem('sy_hash', h);
+      this.setStatus('Synkad ✓');
+    } catch (e) { console.warn(e); this.setStatus('Synk-fel: ' + e.message); }
+    this.busy = false;
+  },
+};
+
 /* ---------------- wake lock ---------------- */
 let wakeLock = null;
 async function wake() {
@@ -1026,7 +1149,7 @@ async function wake() {
     else if (!S.settings.keepAwake && wakeLock) { await wakeLock.release(); wakeLock = null; }
   } catch (e) {}
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wake(); if (LP.connected) LP.paintAll(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wake(); if (LP.connected) LP.paintAll(); Sync.pull(false); } });
 
 /* ---------------- boot ---------------- */
 (async function boot() {
@@ -1036,6 +1159,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
   if (!S.curGroup || !group(S.curGroup)) S.curGroup = S.groups[0] && S.groups[0].id;
   renderAllTiles(); renderNow(); renderStatus();
   try { await SP.handleRedirect(); } catch (e) { toast('Spotify: ' + e.message, 5000); }
+  await Sync.pull(false);
   if (SP.loggedIn) SP.initPlayer();
   LP.connect(false);
   AudioL.preload(); wake();
