@@ -476,6 +476,37 @@ const Engine = {
 };
 setInterval(() => Engine.tick(), 100);
 
+/* ---------------- custom triggers (any MIDI button or keyboard key) ---------------- */
+// key format: 'm|<port name>|n<ch>|<note>' or 'm|<port name>|c<ch>|<cc>' or 'k|<KeyboardEvent.code>'
+const Trig = {
+  learn: null,
+  midiKey(port, d) { const type = d[0] & 0xF0; if (!((type === 0x90 || type === 0xB0) && d[2] > 0)) return null; return 'm|' + (port.name || port.id) + '|' + (type === 0x90 ? 'n' : 'c') + (d[0] & 0x0F) + '|' + d[1]; },
+  find(key) { return S.tiles.find(t => (t.trig || []).includes(key)); },
+  handle(key) {
+    if (!key) return false;
+    if (this.learn) {
+      const t = this.learn; this.learn = null;
+      S.tiles.forEach(x => { if (x.trig) x.trig = x.trig.filter(k => k !== key); });
+      (t.trig = t.trig || []).push(key); save(); toast('Kopplat till ' + this.label(key)); renderAllTiles(); LP.paintAll();
+      if ($('#sheetBg').classList.contains('open') && $('#eTrig')) openTileEditor(t);
+      return true;
+    }
+    const t = this.find(key); if (!t) return false;
+    if (editMode) openTileEditor(t); else Engine.trigger(t);
+    return true;
+  },
+  label(key) {
+    const p = key.split('|');
+    if (p[0] === 'k') return '⌨ ' + p[1].replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ');
+    const lp = LP.input && (LP.input.name || LP.input.id) === p[1];
+    const num = +p[3];
+    if (lp && p[2][0] === 'n') return 'Pad ' + (9 - Math.floor(num / 10)) + '·' + (num % 10);
+    if (lp) return 'Knapp ' + num;
+    return (p[2][0] === 'n' ? 'Not ' : 'CC ') + num + ' (' + p[1].slice(0, 14) + ')';
+  },
+  lpNotes(t) { if (!LP.input) return []; const name = LP.input.name || LP.input.id; return (t.trig || []).map(k => k.split('|')).filter(p => p[0] === 'm' && p[1] === name).map(p => ({ cc: p[2][0] === 'c', n: +p[3] })); },
+};
+
 /* ---------------- Launchpad Mini MK3 (Web MIDI) ---------------- */
 const LP = {
   access: null, input: null, output: null, connected: false,
@@ -495,10 +526,9 @@ const LP = {
   },
   pick(interactive) {
     const { ins, outs } = this.ports();
-    if (this.input) this.input.onmidimessage = null;
     this.input = this.choose(ins, S.settings.lpIn); this.output = this.choose(outs, S.settings.lpOut);
     this.connected = !!(this.input && this.output);
-    if (this.input) this.input.onmidimessage = e => this.onMsg(e.data);
+    ins.forEach(p => { p.onmidimessage = e => { if (Trig.handle(Trig.midiKey(p, e.data))) return; if (p === this.input) this.onMsg(e.data); }; });
     if (this.connected) { this.programmerMode(); setTimeout(() => this.paintAll(), 120); }
     else if (interactive) toast(ins.length ? 'Hittade MIDI men ingen Launchpad — välj port i inställningar' : 'Ingen Launchpad hittad — kolla kabeln');
     renderStatus();
@@ -521,9 +551,14 @@ const LP = {
     return [0x90, col[0]];
   },
   paintTile(t, flash) {
-    if (!this.connected) return; const n = this.noteOf(t); if (n < 0) return;
+    if (!this.connected) return; const n = this.noteOf(t); if (n < 0) { this.paintBound(t, flash); return; }
     const [st, v] = this.ledFor(t, flash);
     this.send([0x90, n, 0]); this.send([st, n, v]);
+    this.paintBound(t, flash);
+  },
+  paintBound(t, flash) {
+    if (!this.connected) return; const [st, v] = this.ledFor(t, flash);
+    Trig.lpNotes(t).forEach(({ cc, n }) => { if (cc) this.send([0xB0, n, v]); else { this.send([0x90, n, 0]); this.send([st, n, v]); } });
   },
   paintAll() {
     if (!this.connected) return;
@@ -544,6 +579,7 @@ const LP = {
     });
     this.send([0xB0, 19, 5]);
     this.send([0xB0, 99, 21]); // logo
+    S.tiles.forEach(t => { if (t.trig && t.trig.length) this.paintBound(t); });
   },
   onMsg(d) {
     const [st, a, b] = d; const type = st & 0xF0;
@@ -582,7 +618,7 @@ function tileHtml(t, i) {
   const cls = ['tile']; if (t.played && isMusic(t)) cls.push('played'); if (playing) cls.push('playing'); if (Engine.sfx.has(t.id)) cls.push('flash');
   const badge = t.kind === 'spotify' ? '<span class="badge">♫</span>' : '<span class="badge">' + (t.overlay ? '📣' : '♪') + '</span>';
   return `<div class="${cls.join(' ')}" data-t="${t.id}" style="--tc:${COLORS[t.color ?? 0] || COLORS[0]}">
-    <span class="lp">${lpLabel(t)}</span>
+    <span class="lp">${t.trig && t.trig.length ? esc(Trig.label(t.trig[0])) : lpLabel(t)}</span>
     <div class="t">${esc(t.title)}</div><div><div class="a">${esc(t.alt || t.artist || '')}</div><div class="d">${fmt(playLen(t))}</div></div>${badge}<div class="prog"></div></div>`;
 }
 function lpLabel(t) {
@@ -637,7 +673,12 @@ $('#npFade').onclick = () => Engine.fadeOut();
 $('#npRestart').onclick = () => Engine.restart();
 $('#npRandom').onclick = () => Engine.random(curGroup().id);
 $('#sheetBg').addEventListener('click', e => { if (e.target.id === 'sheetBg') closeSheet(); });
-document.addEventListener('keydown', e => { if (e.key === ' ' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); Engine.fadeOut(); } });
+document.addEventListener('keydown', e => {
+  if (e.repeat || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (Trig.handle('k|' + e.code)) { e.preventDefault(); return; }
+  if (e.key === ' ') { e.preventDefault(); Engine.fadeOut(); }
+});
 
 function openSheet(html) { $('#sheet').innerHTML = html; $('#sheetBg').classList.add('open'); $('#sheet').scrollTop = 0; }
 function closeSheet() { $('#sheetBg').classList.remove('open'); $('#sheet').innerHTML = ''; }
@@ -665,13 +706,19 @@ function openTileEditor(t) {
   <label>Volym <b id="eVolV">${t.volume >= 0 ? t.volume + '%' : 'standard'}</b></label><input type="range" id="eVol" min="-5" max="100" step="5" value="${t.volume >= 0 ? t.volume : -5}">
   <label>Intoning <b id="eFiV">${t.fadeIn >= 0 ? t.fadeIn + ' s' : 'standard'}</b></label><input type="range" id="eFi" min="-1" max="10" step="0.5" value="${t.fadeIn >= 0 ? t.fadeIn : -1}">
   <label>Uttoning <b id="eFoV">${t.fadeOut >= 0 ? t.fadeOut + ' s' : 'standard'}</b></label><input type="range" id="eFo" min="-1" max="10" step="0.5" value="${t.fadeOut >= 0 ? t.fadeOut : -1}">
+  <h3>Trigger</h3>
+  <p class="hint">Koppla rutan till valfri knapp: en pad på Launchpad, en annan MIDI-pryl eller en tangent på ett Bluetooth-tangentbord. Fungerar i alla grupper.</p>
+  <div class="list">${(t.trig || []).map((k, i) => `<div class="li"><div class="m"><b>${esc(Trig.label(k))}</b></div><button data-tr="${i}">✕</button></div>`).join('') || '<div class="hint">Ingen egen trigger (spelas via sin plats på Launchpad).</div>'}</div>
+  <button style="width:100%;margin-top:8px" id="eTrig">${Trig.learn === t ? 'Tryck på en knapp nu… (avbryt)' : '＋ Tilldela knapp'}</button>
   <h3>Plats</h3>
   <label>Grupp</label><select id="eGroup">${opts}</select>
   <div class="row" style="margin-top:8px"><button data-mv="-8">⇈ Rad upp</button><button data-mv="-1">← Flytta</button><button data-mv="1">Flytta →</button><button data-mv="8">⇊ Rad ner</button></div>
   <div class="row" style="margin-top:8px"><button data-mv="first">Först</button><button data-mv="last">Sist</button><button id="eDup">Duplicera</button></div>
   <div class="row" style="margin-top:22px"><button class="danger" id="eDel">Ta bort</button><button class="primary" id="eDone">Klar</button></div>`);
   const upd = () => { save(); renderAllTiles(); LP.paintAll(); };
-  $('#eClose').onclick = $('#eDone').onclick = () => { Engine.previewStop && Engine.previewStop(); closeSheet(); };
+  $('#eTrig').onclick = e => { if (Trig.learn === t) { Trig.learn = null; e.target.textContent = '＋ Tilldela knapp'; } else { Trig.learn = t; e.target.textContent = 'Tryck på en knapp nu… (avbryt)'; e.target.blur(); toast('Tryck på en pad, MIDI-knapp eller tangent'); } };
+  document.querySelectorAll('[data-tr]').forEach(b => b.onclick = () => { const k = t.trig[+b.dataset.tr]; t.trig.splice(+b.dataset.tr, 1); upd(); if (LP.connected) LP.paintAll(); openTileEditor(t); });
+  $('#eClose').onclick = $('#eDone').onclick = () => { Trig.learn = null; Engine.previewStop && Engine.previewStop(); closeSheet(); };
   $('#eTitle').oninput = e => { t.title = e.target.value; upd(); };
   $('#eAlt').oninput = e => { t.alt = e.target.value; upd(); };
   document.querySelectorAll('.sw').forEach(b => b.onclick = () => { t.color = +b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('sel', x === b)); upd(); });
