@@ -12,8 +12,11 @@ Open it at https://craler.github.io/matchljud/
 - Start and stop points, fades, loops, "play the next tile afterwards" and timed silences for sing-alongs.
 - Played songs go dark; one button plays a random unplayed song from a group.
 - Sound effects fire the moment you touch them and stack on top of the music.
-- Launchpad Mini MK3: the pads mirror the tiles and their colours. Any pad, MIDI button or
-  keyboard key can also be bound to a tile or to a group's random song.
+- Launchpad Mini MK3: the pads mirror the tiles and their colours.
+- Keypads such as the Work Louder Creator Micro work as keyboards: any key (shortcuts with
+  Ctrl/Cmd included), pad or MIDI button can run a tile, a group's random song or a function
+  (fade out, stop all, restart, random, next/previous group, music louder/softer). A
+  walkthrough binds them one press at a time.
 - Reads a Sports Audio DJ backup (.sadj), and saves and restores its own backups.
 - Optional sync between devices through a private GitHub repository.
 

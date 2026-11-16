@@ -67,8 +67,12 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
 .tile-time{font:700 15px/1 var(--cond);font-variant-numeric:tabular-nums}
 .tile-flags{display:flex;gap:3px;opacity:.85}
 .tile-flags svg{width:13px;height:13px;stroke-width:2.5}
-.tile-key{margin-left:auto;font:700 12px/1 var(--cond);opacity:.75;white-space:nowrap}
-kbd{font:700 11px/1 var(--ui);padding:2px 5px;border-radius:5px;box-shadow:inset 0 0 0 1.5px currentColor}
+.tile-key{margin-left:auto;min-width:0;max-width:62%;overflow:hidden;font:700 12px/1 var(--cond);opacity:.75;white-space:nowrap}
+kbd{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;font:700 11px/1 var(--ui);padding:2px 5px;border-radius:5px;box-shadow:inset 0 0 0 1.5px currentColor}
+.wiz{margin:16px 0 6px;padding:26px 16px;border-radius:16px;background:var(--chassis);text-align:center}
+.wiz small{display:block;color:var(--muted)}
+.wiz b{display:block;font:700 36px/1.05 var(--cond);margin:8px 0}
+.wiz span{color:var(--muted)}
 .tile-drain{position:absolute;inset:0;z-index:-1;background:#0000004d;transform-origin:left;transform:scaleX(0);pointer-events:none}
 /* played = lamp off: dark pad, colour only on the edge, title still fully readable */
 .tile.is-played{background:var(--raised);color:#C9CDD6;box-shadow:inset 4px 0 0 var(--pad)}
@@ -264,7 +268,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.1';
+const VERSION = '2.2';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -353,6 +357,7 @@ const defaultState = () => ({
   settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, keepAlive: true, silentUri: SILENT_URI, lpIn: '', lpOut: '', tileSize: 'm' },
   groups: [{ id: uid(), name: 'Match' }],
   tiles: [],
+  binds: {},   // action id -> list of trigger keys (keypad keys, MIDI buttons)
   curGroup: null,
 });
 let S = defaultState();
@@ -778,39 +783,89 @@ const Idle = {
 };
 setInterval(() => { Engine.tick(); Idle.tick(); }, 100);
 
-/* ---------------- triggers: any MIDI button or keyboard key can start a tile or a group's random song ----------------
-   key format: 'm|<port name>|n<channel>|<note>', 'm|<port name>|c<channel>|<cc>' or 'k|<KeyboardEvent.code>' */
+/* ---------------- functions a button can run ---------------- */
+function stepGroup(d) { const g = S.groups[S.groups.indexOf(curGroup()) + d]; if (g) selectGroup(g.id); }
+function nudgeVol(d) {
+  S.settings.musicVol = clamp(S.settings.musicVol + d, 0, 100); save();
+  if (Engine.cur) { Mix.base = Engine.vol(Engine.cur.tile); Mix.apply(); }
+  toast('Musikvolym ' + S.settings.musicVol + ' %' + (VOLUME_LOCKED ? '. Påverkar bara ljudfiler här.' : '.'), 1200);
+}
+const ACTIONS = [
+  { id: 'fade', name: 'Tona ut', lp: 9, run: () => Engine.fadeOut() },
+  { id: 'stop', name: 'Stoppa allt', lp: 5, run: () => Engine.stopAll() },
+  { id: 'restart', name: 'Börja om låten', lp: 13, run: () => Engine.restart() },
+  { id: 'random', name: 'Slumpa i gruppen som visas', lp: 53, run: () => Engine.random(curGroup().id) },
+  { id: 'next', name: 'Nästa grupp', lp: 45, run: () => stepGroup(1) },
+  { id: 'prev', name: 'Föregående grupp', lp: 45, run: () => stepGroup(-1) },
+  { id: 'louder', name: 'Musiken högre', hint: 'Passar bra på en ratt', lp: 3, run: () => nudgeVol(5) },
+  { id: 'softer', name: 'Musiken lägre', hint: 'Passar bra på en ratt', lp: 3, run: () => nudgeVol(-5) },
+];
+const action = id => ACTIONS.find(a => a.id === id);
+
+/* ---------------- triggers: any key, keypad button or MIDI button can run a tile, a group's random song or a function ----------------
+   key format: 'm|<port name>|n<channel>|<note>', 'm|<port name>|c<channel>|<cc>',
+   or 'k|<KeyboardEvent.code>' with '|Ctrl,Alt,Shift,Meta' added when modifiers were held (keypads often send shortcuts) */
+const MOD_LONG = { Ctrl: 'Ctrl', Alt: 'Alt', Shift: 'Shift', Meta: 'Cmd' };
+const MOD_SHORT = { Ctrl: 'Ctrl', Alt: 'Alt', Shift: '⇧', Meta: '⌘' };
+const KEY_NAMES = { Space: 'Mellanslag', Enter: 'Enter', NumpadEnter: 'Num Enter', Backspace: '⌫', Tab: 'Tab', Delete: 'Delete', Insert: 'Insert', Home: 'Home', End: 'End', PageUp: 'Page Up', PageDown: 'Page Down',
+  ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', AudioVolumeUp: 'Volym +', AudioVolumeDown: 'Volym −', AudioVolumeMute: 'Ljud av',
+  MediaPlayPause: 'Spela/paus', MediaTrackNext: 'Nästa spår', MediaTrackPrevious: 'Föregående spår', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']',
+  Semicolon: ';', Quote: "'", Backquote: '`', Backslash: '\\', IntlBackslash: '<', Comma: ',', Period: '.', Slash: '/' };
 const Trig = {
-  learn: null,   // { tile } or { group }, plus done()
+  learn: null,   // { tile } | { group } | { action }, plus done() and quiet
+  last: '',
   midiKey(port, d) {
     const type = d[0] & 0xF0; if (!((type === 0x90 || type === 0xB0) && d[2] > 0)) return null;
     return 'm|' + (port.name || port.id) + '|' + (type === 0x90 ? 'n' : 'c') + (d[0] & 0x0F) + '|' + d[1];
   },
+  keyOf(e) {   // a keydown as a trigger key; null for a lone modifier
+    const code = e.code || (e.key && e.key !== 'Unidentified' ? 'K:' + encodeURIComponent(e.key) : '');
+    if (!code || /^(Shift|Control|Alt|Meta|OS|CapsLock|Fn|NumLock)/.test(code) || /^(Shift|Control|Alt|Meta|AltGraph|Fn|OS)$/.test(e.key)) return null;
+    const mods = ['Ctrl', 'Alt', 'Shift', 'Meta'].filter((m, i) => [e.ctrlKey, e.altKey, e.shiftKey, e.metaKey][i]);
+    return 'k|' + code + (mods.length ? '|' + mods.join(',') : '');
+  },
   find(key) {
     const t = S.tiles.find(x => (x.trig || []).includes(key)); if (t) return { tile: t };
-    const g = S.groups.find(x => (x.trig || []).includes(key)); return g ? { group: g } : null;
+    const g = S.groups.find(x => (x.trig || []).includes(key)); if (g) return { group: g };
+    const a = ACTIONS.find(x => (S.binds[x.id] || []).includes(key)); return a ? { action: a } : null;
   },
-  unbind(key) { [...S.tiles, ...S.groups].forEach(x => { if (x.trig) x.trig = x.trig.filter(k => k !== key); }); },
+  unbind(key) {
+    [...S.tiles, ...S.groups].forEach(x => { if (x.trig) x.trig = x.trig.filter(k => k !== key); });
+    for (const id in S.binds) S.binds[id] = S.binds[id].filter(k => k !== key);
+  },
+  keysOf(l) { return l.action ? (S.binds[l.action] = S.binds[l.action] || []) : ((l.tile || l.group).trig = (l.tile || l.group).trig || []); },
   handle(key) {
     if (!key) return false;
+    this.seen(key);
     if (this.learn) {
       const l = this.learn; this.learn = null;
-      const target = l.tile || l.group;
-      this.unbind(key); (target.trig = target.trig || []).push(key);
-      save(); UI.build(); toast('Kopplad till ' + this.label(key) + '.');
-      if (l.done) l.done();
+      this.unbind(key); this.keysOf(l).push(key);
+      save(); UI.build();
+      if (!l.quiet) toast('Kopplad till ' + this.label(key) + '.');
+      if (l.done) l.done(key);
       return true;
     }
     const hit = this.find(key); if (!hit) return false;
-    if (hit.group) Engine.random(hit.group.id);
+    if (hit.action) hit.action.run();
+    else if (hit.group) Engine.random(hit.group.id);
     else if (editMode) openTileEditor(hit.tile);
     else Engine.trigger(hit.tile);
     return true;
   },
-  parts(key) { const p = key.split('|'); return { kb: p[0] === 'k', code: p[1], port: p[1], cc: p[0] === 'm' && p[2][0] === 'c', num: +p[3] }; },
+  // "Last pressed" line on the keypad page: shows what a button sends and what it does
+  seen(key) {
+    this.last = key; const el = $('#kLast'); if (!el) return;
+    const hit = this.find(key);
+    const what = !hit ? (key === 'k|Space' ? 'tonar ut' : 'ingen funktion än') : hit.action ? hit.action.name.toLowerCase() : hit.group ? 'slumpar ur ' + hit.group.name : 'spelar ' + hit.tile.title;
+    el.textContent = this.label(key).replace(/^./, m => m.toUpperCase()) + ': ' + what;
+  },
+  parts(key) {
+    const p = key.split('|');
+    return { kb: p[0] === 'k', code: p[1], mods: p[0] === 'k' && p[2] ? p[2].split(',') : [], port: p[1], cc: p[0] === 'm' && p[2][0] === 'c', num: +p[3] };
+  },
   label(key) {
     const p = this.parts(key);
-    if (p.kb) return 'tangent ' + this.keyName(p.code);
+    if (p.kb) return 'tangent ' + [...p.mods.map(m => MOD_LONG[m] || m), this.keyName(p.code)].join(' + ');
     if (/launchpad|lpmini/i.test(p.port)) {
       if (!p.cc) return 'pad ' + (9 - Math.floor(p.num / 10)) + '·' + (p.num % 10);
       if (p.num >= 91 && p.num <= 98) return 'knapp ' + ['▲', '▼', '◀', '▶', 'Session', 'Drums', 'Keys', 'User'][p.num - 91];
@@ -818,17 +873,21 @@ const Trig = {
     }
     return (p.cc ? 'knapp ' : 'not ') + p.num + ' på ' + p.port;
   },
-  keyName(code) { return code.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num '); },
+  keyName(code) {
+    if (code.startsWith('K:')) return decodeURIComponent(code.slice(2));
+    return KEY_NAMES[code] || code.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ');
+  },
   // short form for the corner of a tile
   short(key) {
     const p = this.parts(key); let s;
-    if (p.kb) s = this.keyName(p.code);
+    if (p.kb) s = [...p.mods.map(m => MOD_SHORT[m] || m), this.keyName(p.code)].join(p.mods.length ? '+' : '');
     else if (!/launchpad|lpmini/i.test(p.port)) s = (p.cc ? 'cc ' : 'not ') + p.num;
     else if (!p.cc) s = (9 - Math.floor(p.num / 10)) + '·' + (p.num % 10);
     else if (p.num >= 91 && p.num <= 98) s = ['▲', '▼', '◀', '▶', 'Session', 'Drums', 'Keys', 'User'][p.num - 91];
     else s = 'sida ' + (9 - Math.floor(p.num / 10));
     return `<kbd>${esc(s)}</kbd>`;   // the keycap outline tells a hand-picked button from a plain grid position
   },
+  count() { return S.tiles.concat(S.groups).reduce((n, x) => n + (x.trig || []).length, 0) + Object.values(S.binds).reduce((n, l) => n + l.length, 0); },
 };
 
 /* ---------------- Launchpad Mini MK3 (Web MIDI, Programmer mode) ----------------
@@ -897,6 +956,7 @@ const LP = {
     const mine = k => { const p = Trig.parts(k); return !p.kb && this.input && p.port === (this.input.name || this.input.id) ? p.num : 0; };
     for (const t of S.tiles) for (const k of t.trig || []) { const n = mine(k); if (n) f[n] = this.led(t); }
     for (const g of S.groups) for (const k of g.trig || []) { const n = mine(k); if (n) f[n] = [0, this.groupLed(g)]; }
+    for (const a of ACTIONS) for (const k of S.binds[a.id] || []) { const n = mine(k); if (n) f[n] = [0, a.lp]; }
     return f;
   },
   render() { if (!this.connected || this.timer) return; this.timer = setTimeout(() => { this.timer = 0; this.flush(); }, 15); },
@@ -1120,11 +1180,11 @@ $('#scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closeS
 $('#shClose').onclick = () => closeSheet();
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (sheetOpen()) closeSheet(); else if (moving) endMove(); else if (searchQ !== null) closeSearch(); return; }
-  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  if (e.repeat || /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  const key = Trig.keyOf(e); if (!key) return;
   SP.activate(); AudioL.ensure();
-  if (Trig.handle('k|' + e.code)) return e.preventDefault();
-  if (e.code === 'Space' && !sheetOpen()) { e.preventDefault(); Engine.fadeOut(); }
+  if (Trig.handle(key)) return e.preventDefault();   // a bound key: keep the browser from acting on it too
+  if (key === 'k|Space' && !sheetOpen()) { e.preventDefault(); Engine.fadeOut(); }
 });
 window.addEventListener('online', renderStatus); window.addEventListener('offline', renderStatus);
 
@@ -1373,6 +1433,7 @@ const Menu = {
       <div style="margin-top:10px">
       ${row('spotify', 'Spotify', sp)}
       ${row('launchpad', 'Launchpad', LP.connected ? 'Ansluten' : 'Inte ansluten')}
+      ${row('keypad', 'Knappsats och tangenter', Trig.count() ? Trig.count() + ' kopplade' : 'Inga kopplade')}
       ${row('groups', 'Grupper', S.groups.length + ' st')}
       ${row('settings', 'Ljud och skärm', `Tonar ut på ${String(S.settings.fadeOut).replace('.', ',')} s`)}
       ${row('sync', 'Synk mellan enheter', Sync.on ? (Sync.status || 'På') : 'Av')}
@@ -1415,6 +1476,31 @@ const Menu = {
       ${ins.length ? `<h3 class="sec">MIDI-portar</h3><p class="hint">Behövs bara om fel enhet valdes.</p>${sel('sLpIn', 'Ingång', ins, st.lpIn)}${sel('sLpOut', 'Utgång', outs, st.lpOut)}` : ''}`, { back: () => openMenu() });
     $('#sLp').onclick = async () => { await LP.connect(true); if (sheetOpen()) Menu.launchpad(); };
     if ($('#sLpIn')) { $('#sLpIn').onchange = e => { st.lpIn = e.target.value; save(); LP.pick(true); }; $('#sLpOut').onchange = e => { st.lpOut = e.target.value; save(); LP.pick(true); }; }
+  },
+  keypad() {
+    const learning = l => !!Trig.learn && (l.action ? Trig.learn.action === l.action : Trig.learn.group === l.group);
+    const rowHtml = (name, keys, attr, learn) => `<div class="li"><div class="m"><b>${esc(name)}</b><small>${keys.length ? esc(keys.map(k => Trig.label(k)).join(', ')) : 'Ingen knapp'}</small></div>` +
+      (keys.length ? `<button class="iconbtn" ${attr} data-clear aria-label="Koppla loss ${esc(name)}">${ic('close')}</button>` : '') +
+      `<button class="btn small" ${attr} data-learn>${learn ? 'Tryck nu…' : 'Koppla'}</button></div>`;
+    const own = S.tiles.filter(t => (t.trig || []).length).length;
+    openSheet('Knappsats och tangenter', `
+      <p class="hint">En knappsats som Work Louder Creator Micro fungerar som ett tangentbord. Koppla in den med USB-C och bestäm här vad knapparna gör. Launchpad fungerar som vanligt, med eller utan knappsatsen.</p>
+      <div class="row"><button class="btn primary" id="kWiz">Ställ in knapparna en i taget</button></div>
+      <div class="line" style="margin-top:6px"><span>Senast tryckt</span><b id="kLast" style="text-align:right;font-weight:600">Tryck på en knapp</b></div>
+      <h3 class="sec">Funktioner</h3>
+      <div class="list">${ACTIONS.map(a => rowHtml(a.name, S.binds[a.id] || [], `data-action="${a.id}"`, learning({ action: a.id }))).join('')}</div>
+      <h3 class="sec">Slumpa en ospelad låt</h3>
+      <div class="list">${S.groups.map(g => rowHtml(g.name, g.trig || [], `data-group="${g.id}"`, learning({ group: g }))).join('')}</div>
+      <h3 class="sec">Låtar och ljud</h3>
+      <p class="hint">${own ? own + (own === 1 ? ' ruta har' : ' rutor har') + ' en egen knapp. ' : ''}Vill du starta en viss låt eller tuta med en knapp? Håll inne rutan och välj ”Koppla en knapp”.</p>
+      <p class="hint" style="margin-top:22px">Enklast är att ställa in knappsatsen så att varje knapp skickar en vanlig bokstav. Det gör du i Work Louders program på en dator. Kortkommandon med Ctrl eller Cmd fungerar också, men telefonen fångar vissa av dem innan appen ser dem.</p>`,
+      { back: () => openMenu(), keep: true });
+    if (Trig.last) Trig.seen(Trig.last);
+    const again = () => { if (sheetOpen() && $('#kWiz')) Menu.keypad(); };
+    const target = b => b.dataset.action ? { action: b.dataset.action } : { group: group(b.dataset.group) };
+    $$('#shBody [data-learn]').forEach(b => { b.onclick = () => { const l = target(b); Trig.learn = learning(l) ? null : { ...l, done: again }; again(); }; });
+    $$('#shBody [data-clear]').forEach(b => { b.onclick = () => { const l = target(b); Trig.keysOf(l).length = 0; save(); UI.build(); again(); }; });
+    $('#kWiz').onclick = () => padWizard(0);
   },
   groups() {
     const learning = g => Trig.learn && Trig.learn.group === g;
@@ -1484,6 +1570,22 @@ const Menu = {
     $('#sExp').onclick = exportBackup;
   },
 };
+// Walks through every function and group; one press binds it, "Hoppa över" leaves it as it is.
+function padWizard(i) {
+  const steps = [...ACTIONS.map(a => ({ action: a.id, name: a.name, hint: a.hint })), ...S.groups.map(g => ({ group: g, name: 'Slumpa ur ' + g.name }))];
+  if (i >= steps.length) { Trig.learn = null; toast('Knapparna är inställda.'); return Menu.keypad(); }
+  const st = steps[i], keys = st.action ? (S.binds[st.action] || []) : (st.group.trig || []);
+  openSheet('Ställ in knapparna', `
+    <p class="hint">Tryck på knappen som ska göra det här. Hoppa över det du inte behöver.</p>
+    <div class="wiz"><small>${i + 1} av ${steps.length}</small><b>${esc(st.name)}</b><span id="wNow">${keys.length ? 'Nu: ' + esc(keys.map(k => Trig.label(k)).join(', ')) : esc(st.hint || 'Ingen knapp än')}</span></div>
+    <div class="row"><button class="btn" id="wPrev" ${i ? '' : 'disabled'}>Föregående</button><button class="btn" id="wSkip">Hoppa över</button></div>
+    <div class="row"><button class="btn primary" id="wDone">Klar</button></div>`, { back: () => { Trig.learn = null; Menu.keypad(); } });
+  Trig.learn = { ...(st.action ? { action: st.action } : { group: st.group }), quiet: true,
+    done: key => { const el = $('#wNow'); if (el) el.textContent = 'Kopplad: ' + Trig.label(key); setTimeout(() => { if (sheetOpen() && $('#wNow')) padWizard(i + 1); }, 450); } };
+  $('#wPrev').onclick = () => padWizard(i - 1);
+  $('#wSkip').onclick = () => padWizard(i + 1);
+  $('#wDone').onclick = () => { Trig.learn = null; Menu.keypad(); };
+}
 function openMenu(page = 'root') { sheetHook = null; Trig.learn = null; (Menu[page] || Menu.root)(); }
 
 /* ---------------- import / export ---------------- */
@@ -1586,7 +1688,7 @@ const Sync = {
   // What travels between devices. Played marks, tile size and MIDI ports stay on each device.
   shared() {
     const st = S.settings;
-    return { app: 'matchljud', version: 2, spClient: SP.clientId, groups: S.groups, tiles: S.tiles.map(({ played, ...r }) => r),
+    return { app: 'matchljud', version: 2, spClient: SP.clientId, groups: S.groups, binds: S.binds, tiles: S.tiles.map(({ played, ...r }) => r),
       settings: { fadeOut: st.fadeOut, fadeIn: st.fadeIn, musicVol: st.musicVol, sfxVol: st.sfxVol, markPlayed: st.markPlayed, keepAlive: st.keepAlive, silentUri: st.silentUri } };
   },
   localHash() { return this.hash(JSON.stringify(this.shared())); },
@@ -1630,6 +1732,7 @@ const Sync = {
       S.groups = Array.isArray(rem.groups) && rem.groups.length ? rem.groups : S.groups;
       S.tiles = (rem.tiles || []).map(t => ({ ...t, played: !!played.get(t.id) }));
       S.settings = { ...S.settings, ...(rem.settings || {}) };
+      if (rem.binds) S.binds = rem.binds;
       if (rem.spClient && !SP.clientId) SP.clientId = rem.spClient;
       if (!group(S.curGroup)) S.curGroup = S.groups[0].id;
       if (Engine.cur) { const nt = tile(Engine.cur.tile.id); if (nt) Engine.cur.tile = nt; }
