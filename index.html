@@ -3,159 +3,317 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#121316">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Matchljud</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
+<link rel="preload" href="matchljud-cond.woff" as="font" type="font/woff" crossorigin>
 <style>
+/* Pads are loud, the chassis is quiet: all colour belongs to the user's tiles. */
+@font-face{font-family:"Matchljud Cond";src:url(matchljud-cond.woff) format("woff");font-weight:700;font-display:swap}
 :root{
-  --bg:#0b0d10; --panel:#161a20; --panel2:#1f242c; --line:#2a313b; --text:#eef1f5; --muted:#8a94a3;
-  --accent:#2bd46a; --danger:#ff5a5a; --warn:#ffb020;
-  --c0:#e23b4a; --c1:#f5852b; --c2:#f2c230; --c3:#33c46b; --c4:#22b8c9; --c5:#3d7cf0; --c6:#9a5cf0; --c7:#ef5fa7; --c8:#8a94a3;
+  --chassis:#121316; --deck:#1A1C21; --raised:#262930; --line:#32353E;
+  --text:#F2F3F5; --muted:#9DA3B0; --dim:#666B7A;
+  --ok:#46D08A; --warn:#FFC53D; --bad:#FF6B70;
+  --cond:"Matchljud Cond","Roboto Condensed",sans-serif-condensed,"Arial Narrow",system-ui,sans-serif;
+  --ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --tile:108px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
-body{display:flex;flex-direction:column;height:100dvh;user-select:none;-webkit-user-select:none}
-button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer}
-button:active{transform:scale(.97)}
-button.primary{background:var(--accent);color:#04210f;border-color:transparent;font-weight:650}
-button.danger{background:transparent;border-color:var(--danger);color:var(--danger)}
-button.ghost{background:transparent;border-color:transparent}
-button:disabled{opacity:.4}
-input,select{font:inherit;color:var(--text);background:#0e1116;border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
-input[type=range]{padding:0;accent-color:var(--accent)}
-input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
-label{display:block;color:var(--muted);font-size:13px;margin:12px 0 6px}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--chassis);color:var(--text);font:15px/1.35 var(--ui);overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  display:grid;height:100dvh;grid-template:"head" auto "note" auto "main" minmax(0,1fr) "deck" auto / minmax(0,1fr)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:2px solid #fff;outline-offset:2px}
+svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* controls */
+.iconbtn{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none}
+.iconbtn:active{background:var(--raised)}
+.iconbtn:disabled{opacity:.3}
+.iconbtn[aria-pressed=true]{background:var(--text);color:var(--chassis)}
+.btn{min-height:44px;padding:0 14px;border-radius:12px;background:var(--raised);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.btn:active{filter:brightness(1.25)}
+.btn.primary{background:var(--text);color:var(--chassis)}
+.btn.danger{background:none;box-shadow:inset 0 0 0 1.5px var(--bad);color:var(--bad)}
+.btn.small{min-height:38px;padding:0 10px;font-size:14px}
+.btn.square{width:44px;padding:0}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.35;filter:none}
 
 /* header */
-header{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px;border-bottom:1px solid var(--line)}
-header h1{font-size:20px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.iconbtn{width:44px;height:44px;padding:0;display:grid;place-items:center;border-radius:14px;font-size:20px}
-.iconbtn.on{background:var(--warn);color:#2a1a00;border-color:transparent}
-.dots{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted)}
-.dot{display:inline-flex;align-items:center;gap:4px}
-.dot i{width:9px;height:9px;border-radius:50%;background:#444;display:inline-block}
-.dot.ok i{background:var(--accent)} .dot.bad i{background:var(--danger)}
+#head{grid-area:head;display:flex;align-items:center;gap:4px;padding:calc(env(safe-area-inset-top) + 8px) 8px 6px}
+#title{font:700 28px/1 var(--cond);margin:0 6px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#q{flex:1;min-width:0;height:44px;margin:0 2px}
+#status{display:flex;align-items:center;gap:7px;height:44px;padding:0 8px;border-radius:12px;color:var(--dim);font-size:13px;font-weight:600;flex:none}
+#status svg{width:18px;height:18px}
+#status .ok{color:var(--ok)} #status .warn{color:var(--warn)} #status .bad{color:var(--bad)}
+#status .msg{display:none}
+#banner{grid-area:note;display:flex;align-items:center;gap:10px;margin:0 10px 8px;padding:8px 8px 8px 14px;border-radius:12px;background:var(--text);color:var(--chassis);font-weight:600}
+#banner span{flex:1}
+#banner .btn{background:var(--chassis);color:var(--text)}
 
-/* grid */
-main{flex:1;overflow-y:auto;padding:10px;-webkit-overflow-scrolling:touch}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px}
-.tile{-webkit-touch-callout:none;touch-action:manipulation;position:relative;aspect-ratio:1/1;border-radius:16px;padding:10px 8px 8px;display:flex;flex-direction:column;justify-content:space-between;text-align:center;overflow:hidden;
-  background:linear-gradient(160deg,color-mix(in srgb,var(--tc) 100%,white 12%),color-mix(in srgb,var(--tc) 78%,black));border:2px solid transparent;cursor:pointer}
-.tile .t{font-weight:700;font-size:15px;line-height:1.15;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-top:auto;margin-bottom:auto;text-shadow:0 1px 2px #0006}
-.tile .a{font-size:10.5px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tile .d{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
-.tile .badge{position:absolute;left:6px;bottom:6px;font-size:11px;background:#0005;border-radius:8px;padding:1px 5px}
-.tile .lp{position:absolute;right:6px;top:5px;font-size:10px;opacity:.75}
-.tile.played{opacity:.38;filter:saturate(.6)}
-.tile.playing{border-color:#fff;box-shadow:0 0 0 3px #fff3,0 0 22px color-mix(in srgb,var(--tc) 70%,transparent);opacity:1;filter:none}
-.tile .prog{position:absolute;left:0;bottom:0;height:5px;background:#fff;width:0}
-.tile.flash{animation:fl .35s}
-@keyframes fl{from{filter:brightness(2)}to{filter:none}}
-.editing .tile{outline:2px dashed #fff8;outline-offset:-6px}
-.empty{color:var(--muted);text-align:center;padding:40px 10px}
+/* tile grid */
+#main{grid-area:main;overflow-y:auto;padding:6px 10px 12px;overscroll-behavior:contain}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile),1fr));gap:8px}
+.tile{position:relative;isolation:isolate;aspect-ratio:1;border-radius:14px;padding:9px 10px 8px;display:flex;flex-direction:column;text-align:left;overflow:hidden;
+  background:var(--pad);color:var(--ink);-webkit-touch-callout:none}
+.tile:active{filter:brightness(1.15)}
+.tile-title{font:700 17px/1.08 var(--cond);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.tile-sub{font-size:11px;line-height:1.25;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.tile-foot{margin-top:auto;display:flex;align-items:flex-end;gap:5px;min-height:16px}
+.tile-time{font:700 15px/1 var(--cond);font-variant-numeric:tabular-nums}
+.tile-flags{display:flex;gap:3px;opacity:.85}
+.tile-flags svg{width:13px;height:13px;stroke-width:2.5}
+.tile-key{margin-left:auto;font:700 12px/1 var(--cond);opacity:.75;white-space:nowrap}
+kbd{font:700 11px/1 var(--ui);padding:2px 5px;border-radius:5px;box-shadow:inset 0 0 0 1.5px currentColor}
+.tile-drain{position:absolute;inset:0;z-index:-1;background:#0000004d;transform-origin:left;transform:scaleX(0);pointer-events:none}
+/* played = lamp off: dark pad, colour only on the edge, title still fully readable */
+.tile.is-played{background:var(--raised);color:#C9CDD6;box-shadow:inset 4px 0 0 var(--pad)}
+.tile.is-played .tile-sub{opacity:.65}
+/* the one thing that moves: the playing pad drains like a game clock */
+.tile.is-live{outline:3px solid #fff;outline-offset:2px;z-index:1;animation:breathe 1.6s ease-in-out infinite}
+.tile.is-live .tile-time{font-size:28px}
+.tile.is-live .tile-sub{display:none}
+.tile.is-loading{animation:none;filter:brightness(.8)}
+.tile.is-fading{animation:none;opacity:.55}
+.tile.is-sounding{outline:3px solid #fff;outline-offset:-3px}
+.tile.is-lifted{opacity:.3}
+.tile.slot{background:none;color:var(--muted);box-shadow:inset 0 0 0 2px var(--line);align-items:center;justify-content:center;font-weight:600;text-align:center}
+@keyframes breathe{50%{filter:brightness(1.2)}}
+body.editing .tile[data-t],body.moving .tile[data-t]{outline:2px dashed #ffffffb0;outline-offset:-6px}
+body.size-s .tile{padding:7px 8px 6px;border-radius:12px}
+body.size-s .tile-title{font-size:15px}
+body.size-s .tile-sub{display:none}
+body.size-l .tile-title{font-size:21px}
+body.size-l .tile-sub{font-size:12.5px}
+.empty{grid-column:1/-1;max-width:460px;margin:8vh auto 0;color:var(--muted)}
+.empty h2{font:700 30px/1.05 var(--cond);color:var(--text);margin:0 0 8px}
+.empty ol{list-style:none;padding:0;margin:18px 0 0;counter-reset:s}
+.empty li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:4px 10px;padding:14px 0;border-top:1px solid var(--line)}
+.empty li>*{grid-column:2;justify-self:start}
+.empty li::before{content:counter(s);grid-column:1;grid-row:1/span 6;font:700 26px/1 var(--cond);color:var(--text)}
+.empty li.done::before{content:"✓";color:var(--ok)}
+.empty li b{color:var(--text);font-weight:600}
+.empty li .btn{margin-top:6px}
 
-/* sfx strip */
-#sfx{display:flex;gap:6px;overflow-x:auto;padding:8px 10px;border-top:1px solid var(--line);background:#0f1318;scrollbar-width:none}
-#sfx::-webkit-scrollbar{display:none}
-#sfx:empty{display:none}
-#sfx button{flex:1 0 auto;min-width:72px;max-width:140px;padding:12px 8px;border:0;border-radius:12px;font-weight:700;font-size:13px;background:var(--tc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px #0006}
-#sfx button.on{box-shadow:0 0 0 3px #fff inset;filter:brightness(1.3)}
-/* now playing */
-#np{border-top:1px solid var(--line);background:var(--panel);padding:8px 10px;display:flex;align-items:center;gap:8px}
-#np .info{flex:1;min-width:0}
-#np .ti{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#np .tm{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-#np .bar{height:4px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden}
-#np .bar div{height:100%;width:0;background:var(--accent)}
-#np button{padding:10px 12px;border-radius:12px}
-#np .rnd{background:#2b3442}
+/* deck: horns, transport, groups */
+#deck{grid-area:deck;display:flex;flex-direction:column;background:var(--deck);border-top:1px solid var(--line);min-height:0}
+#horns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:8px 10px 0}
+#horns:empty{display:none}
+.horn{position:relative;height:48px;border-radius:12px;background:var(--pad);color:var(--ink);font:700 14.5px/1.05 var(--cond);padding:3px 6px;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;-webkit-touch-callout:none}
+.horn span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.horn small{position:absolute;left:5px;top:3px;font-size:10px;opacity:.7}
+.horn:active{transform:scale(.95);filter:brightness(1.2)}
+.horn.is-sounding{box-shadow:inset 0 0 0 3px #fff}
+.horn.is-lifted{opacity:.3}
+body.editing .horn,body.moving .horn{outline:2px dashed #ffffffb0;outline-offset:-5px}
 
-/* tabs */
-nav{display:flex;gap:6px;overflow-x:auto;padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);background:var(--panel);scrollbar-width:none}
-nav::-webkit-scrollbar{display:none}
-nav button{flex:0 0 auto;border-radius:14px;padding:12px 16px;font-weight:650;background:#0f4a36;border-color:transparent;color:#d9fbe8;position:relative}
-nav button.cur{background:var(--accent);color:#04210f}
-nav button small{display:block;font-size:10px;font-weight:500;opacity:.8}
+#transport{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:13px 10px 8px}
+.tp-bar{position:absolute;left:10px;right:10px;top:5px;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.tp-bar i{display:block;height:100%;background:var(--text);transform-origin:left;transform:scaleX(0)}
+.tp-clock{font:700 42px/1 var(--cond);font-variant-numeric:tabular-nums;min-width:74px}
+.tp-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-ctl{display:flex;gap:6px}
+#transport.idle .tp-clock,#transport.idle .tp-title{color:var(--dim)}
+
+#tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 10px calc(env(safe-area-inset-bottom) + 10px);scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;min-height:46px;padding:5px 14px;border-radius:12px;background:var(--raised);color:var(--muted);display:flex;flex-direction:column;justify-content:center;text-align:left}
+.tab-name{font:700 18px/1.05 var(--cond);color:var(--text)}
+.tab-n{font-size:11px;line-height:1.2;font-variant-numeric:tabular-nums}
+.tab[aria-selected=true]{background:var(--text);color:#4a4e59}
+.tab[aria-selected=true] .tab-name{color:var(--chassis)}
 
 /* sheets */
-.sheet-bg{position:fixed;inset:0;background:#000a;display:none;z-index:50}
-.sheet-bg.open{display:block}
-.sheet{position:absolute;left:0;right:0;bottom:0;max-height:92dvh;overflow-y:auto;background:var(--panel);border-radius:20px 20px 0 0;padding:14px 16px calc(env(safe-area-inset-bottom) + 18px)}
-.sheet h2{margin:2px 0 10px;font-size:19px;display:flex;align-items:center;gap:8px}
-.sheet h2 span{flex:1}
-.sheet h3{margin:20px 0 6px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.row{display:flex;gap:8px;align-items:center}
-.row > *{flex:1}
-.row.tight > *{flex:0 0 auto}
+#scrim{position:fixed;inset:0;z-index:50;background:#000000b3;display:none;align-items:flex-end;justify-content:center}
+#scrim.open{display:flex}
+#sheet{width:100%;max-width:560px;max-height:92dvh;display:flex;flex-direction:column;background:var(--deck);border-radius:20px 20px 0 0;overflow:hidden;animation:rise .18s ease-out}
+@keyframes rise{from{transform:translateY(24px);opacity:.4}}
+.sh-head{display:flex;align-items:center;gap:2px;padding:10px 8px 4px 8px}
+.sh-head h2{flex:1;margin:0 8px;font:700 26px/1.1 var(--cond)}
+.sh-body{overflow-y:auto;padding:4px 16px calc(env(safe-area-inset-bottom) + 22px)}
+h3.sec{font:700 20px/1.2 var(--cond);margin:28px 0 2px}
+.hint{color:var(--muted);font-size:13.5px;margin:6px 0 10px}
+.field{margin-top:14px}
+.field>label{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+.field>label b{color:var(--text);font-weight:600}
+input[type=text],input[type=search],input[type=password],select{width:100%;height:46px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--chassis);color:var(--text);font:inherit;user-select:text;-webkit-user-select:text}
+input:focus,select:focus{outline:none;border-color:#fff}
+input[type=range]{width:100%;height:34px;margin:0;accent-color:#fff}
+.line{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:54px;border-bottom:1px solid var(--line)}
+input.sw{appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:14px;background:var(--line);position:relative;flex:none;margin:0;transition:background .15s}
+input.sw::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .15s}
+input.sw:checked{background:var(--ok)}
+input.sw:checked::after{transform:translateX(18px)}
+.row{display:flex;gap:8px;align-items:center;margin-top:10px}
+.row>.btn{flex:1}
+.navrow{display:flex;align-items:center;gap:10px;width:100%;min-height:58px;border-bottom:1px solid var(--line);text-align:left}
+.navrow b{font-weight:600}
+.navrow span{margin-left:auto;color:var(--muted);font-size:13.5px;text-align:right}
+.navrow svg{color:var(--dim)}
 .swatches{display:flex;flex-wrap:wrap;gap:8px}
-.sw{width:38px;height:38px;border-radius:10px;border:3px solid transparent;padding:0}
-.sw.sel{border-color:#fff}
+.swatch{width:40px;height:40px;border-radius:11px;background:var(--pad);color:var(--ink);display:grid;place-items:center}
+.swatch svg{display:none}
+.swatch[aria-pressed=true]{outline:2px solid #fff;outline-offset:2px}
+.swatch[aria-pressed=true] svg{display:block}
+.clip{display:flex;align-items:center;gap:6px;margin-top:14px}
+.clip b{font:700 24px/1 var(--cond);font-variant-numeric:tabular-nums;margin-right:auto}
+.clip b small{display:block;font:400 12px/1.4 var(--ui);color:var(--muted)}
 .list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-.li{display:flex;align-items:center;gap:10px;background:var(--panel2);border-radius:12px;padding:8px 10px}
-.li img{width:42px;height:42px;border-radius:6px;object-fit:cover;background:#000}
+.li{display:flex;align-items:center;gap:10px;background:var(--raised);border-radius:12px;padding:7px 8px 7px 10px;min-height:54px}
+.li img{width:40px;height:40px;border-radius:6px;object-fit:cover;background:var(--chassis);flex:none}
 .li .m{flex:1;min-width:0}
-.li .m b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.li .m small{color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.li button{padding:8px 12px}
-.seg{display:flex;gap:4px;background:#0e1116;border-radius:12px;padding:4px}
-.seg button{flex:1;border:0;background:transparent;padding:9px 6px}
-.seg button.cur{background:var(--panel2)}
-.hint{color:var(--muted);font-size:13px;margin:6px 0}
-.kv{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
-.time{font-variant-numeric:tabular-nums;font-weight:650;font-size:17px}
-#toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);background:#222a35;border:1px solid var(--line);color:#fff;padding:10px 14px;border-radius:12px;z-index:99;display:none;max-width:90vw;text-align:center}
-code{background:#0e1116;padding:1px 5px;border-radius:5px;user-select:all;-webkit-user-select:all;word-break:break-all}
+.li .m b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .m small{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li input[type=text]{height:40px}
+.li .btn,.gcard .btn{background:var(--chassis)}
+.gcard{background:var(--raised);border-radius:12px;padding:8px 8px 10px 10px}
+.gcard .top{display:flex;align-items:center;gap:2px}
+.gcard .top input{flex:1;min-width:0;height:42px;margin-right:4px}
+.gcard .hint{margin:8px 2px}
+.gcard .row{margin-top:0}
+.seg{display:flex;gap:4px;background:var(--chassis);border-radius:12px;padding:4px}
+.seg button{flex:1;min-height:40px;border-radius:9px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--raised);color:var(--text)}
+code{display:block;background:var(--chassis);padding:10px 12px;border-radius:10px;margin:6px 0;word-break:break-all;user-select:all;-webkit-user-select:all;font-size:13px}
+ol.steps{padding-left:22px;margin:8px 0;color:var(--muted)}
+ol.steps li{margin:10px 0;padding-left:4px}
+ol.steps b{color:var(--text);font-weight:600}
+.foot{color:var(--dim);font-size:12.5px;margin-top:26px}
+
+/* Launchpad map */
+.lpmap{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;width:min(100%,250px);margin:14px auto 6px;padding:10px;border-radius:14px;background:#000}
+.lpmap i{aspect-ratio:1;border-radius:4px;background:#2c2f37;font:700 9px/1 var(--ui);font-style:normal;color:#000;display:grid;place-items:center}
+.lpmap .k{border-radius:50%}
+.z-tile{background:#4C6FE6!important} .z-fx{background:#D93A40!important} .z-nav{background:#E9EBEF!important} .z-fade{background:#FF8B3E!important}
+.z-stop{background:#FF5A5F!important} .z-again{background:#FFC53D!important} .z-rnd{background:#B17CFF!important} .z-rndg{background:#46D08A!important}
+.lpmap .logo{background:none}
+ul.legend{list-style:none;padding:0;margin:10px 0 0}
+ul.legend li{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:baseline;padding:5px 0;font-size:13.5px;color:var(--muted)}
+ul.legend b{color:var(--text);font-weight:600}
+.chip{width:12px;height:12px;border-radius:3px;display:block;transform:translateY(1px)}
+
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);min-height:44px;transform:translateX(-50%);z-index:99;display:none;align-items:center;gap:6px;max-width:min(92vw,480px);
+  background:var(--text);color:var(--chassis);border-radius:12px;padding:10px 14px;font-weight:600;box-shadow:0 10px 30px #000a}
+#toast button{font-weight:700;text-decoration:underline;padding:8px;margin:-6px -6px -6px 2px;white-space:nowrap}
+
+@media (min-width:560px){#status .msg{display:inline}}
+/* tablets, laptops and phones on their side: the deck moves to the right */
+@media (min-width:840px),(orientation:landscape) and (max-height:540px){
+  body{grid-template:"head deck" auto "note deck" auto "main deck" minmax(0,1fr) / minmax(0,1fr) clamp(280px,32vw,360px)}
+  #deck{border-top:0;border-left:1px solid var(--line);overflow-y:auto;padding-top:env(safe-area-inset-top)}
+  #transport{order:-1;grid-template-columns:minmax(0,1fr);gap:6px;padding:20px 14px 10px}
+  .tp-bar{left:14px;right:14px;top:10px}
+  .tp-clock{font-size:64px}
+  .tp-ctl{display:grid;grid-template-columns:48px 1fr 48px;margin-top:6px}
+  .tp-ctl .btn{width:auto;min-height:48px}
+  #horns{padding:6px 14px 0;grid-template-columns:repeat(3,minmax(0,1fr))}
+  #tabs{flex-direction:column;overflow:visible;padding:14px 14px 16px}
+  .tab{flex-direction:row;align-items:center;justify-content:space-between;min-height:48px}
+}
+@media (min-width:840px){#scrim{align-items:center} #sheet{border-radius:20px;max-height:86dvh}}
+@media (prefers-reduced-motion:reduce){.tile.is-live,#sheet{animation:none}}
 </style>
 </head>
-<body>
-<header>
-  <button class="iconbtn" id="btnMenu" aria-label="Meny">☰</button>
+<body class="size-m">
+<header id="head">
+  <button class="iconbtn" id="btnMenu" aria-label="Meny"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <h1 id="title">Matchljud</h1>
-  <div class="dots"><span class="dot" id="dotSp"><i></i>Spotify</span><span class="dot" id="dotLp"><i></i>Pad</span></div>
-  <button class="iconbtn" id="btnEdit" aria-label="Redigera">✎</button>
-  <button class="iconbtn" id="btnAdd" aria-label="Lägg till">＋</button>
+  <input id="q" type="search" placeholder="Sök bland alla låtar" aria-label="Sök bland alla låtar" autocomplete="off" enterkeyhint="search" hidden>
+  <button id="status" aria-label="Anslutningar"></button>
+  <button class="iconbtn" id="btnSearch" aria-label="Sök" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
+  <button class="iconbtn" id="btnEdit" aria-label="Redigera rutor" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
+  <button class="iconbtn" id="btnAdd" aria-label="Lägg till låtar och ljud"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 </header>
-<main id="main"><div class="grid" id="grid"></div></main>
-<div id="sfx"></div>
-<div id="np">
-  <div class="info"><div class="ti" id="npTitle">—</div><div class="tm" id="npTime">Inget spelas</div><div class="bar"><div id="npBar"></div></div></div>
-  <button id="npRestart" aria-label="Börja om">↺</button>
-  <button id="npFade" aria-label="Tona ut">Tona ut</button>
-  <button class="rnd" id="npRandom" aria-label="Slumpa">🎲</button>
-</div>
-<nav id="tabs"></nav>
+<div id="banner" hidden><span></span><button class="btn small">Avbryt</button></div>
+<main id="main"><div id="grid"></div></main>
+<aside id="deck">
+  <div id="horns" aria-label="Ljudeffekter"></div>
+  <section id="transport" class="idle" aria-label="Spelas nu">
+    <div class="tp-bar"><i id="tpBar"></i></div>
+    <output class="tp-clock" id="tpClock">0:00</output>
+    <div class="tp-text"><div class="tp-title" id="tpTitle">Inget spelas</div><div class="tp-sub" id="tpSub"></div></div>
+    <div class="tp-ctl">
+      <button class="btn square" id="btnRestart" aria-label="Börja om låten" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14"/><path d="M19 5.5v13L9.5 12z"/></svg></button>
+      <button class="btn primary" id="btnFade" disabled>Tona ut</button>
+      <button class="btn square" id="btnRandom" aria-label="Slumpa en ospelad låt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3.5c2.2 0 3.6 1.2 5 3.6l1 1.8c1.4 2.4 2.8 3.6 5 3.6H21"/><path d="M3 17h3.5c1.5 0 2.6-.5 3.6-1.6M14 8.5c1-1 2-1.5 3.5-1.5H21"/><path d="m18 4 3 3-3 3M18 14l3 3-3 3"/></svg></button>
+    </div>
+  </section>
+  <nav id="tabs" role="tablist" aria-label="Grupper"></nav>
+</aside>
 
-<div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
-<div id="toast"></div>
+<div id="scrim"><div id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="sh-head">
+    <button class="iconbtn" id="shBack" aria-label="Tillbaka" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
+    <h2 id="shTitle"></h2>
+    <button class="iconbtn" id="shClose" aria-label="Stäng"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="sh-body" id="shBody"></div>
+</div></div>
+<div id="toast" role="status"></div>
 <input type="file" id="fileImport" hidden>
 <input type="file" id="fileAudio" accept="audio/*" multiple hidden>
 
 <script>
 'use strict';
-/* =========================================================
-   Matchljud — game-day sound board
-   Spotify (Web Playback SDK) + local sounds (Web Audio) +
-   Novation Launchpad Mini MK3 (Web MIDI, programmer mode)
-   ========================================================= */
+/* ==========================================================================
+   Matchljud — courtside sound desk
+   Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
+   ========================================================================== */
+const VERSION = '2.0';
 
-const COLORS = ['#e23b4a','#f5852b','#f2c230','#33c46b','#22b8c9','#3d7cf0','#9a5cf0','#ef5fa7','#8a94a3'];
-const COLOR_NAMES = ['Röd','Orange','Gul','Grön','Turkos','Blå','Lila','Rosa','Grå'];
-// Launchpad palette indices [bright, dim] per colour above
-const LP_COL = [[5,7],[9,11],[13,15],[21,23],[37,39],[45,47],[49,51],[57,59],[3,1]];
+// Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
+// lp = [bright, dim] index in the Launchpad's built-in palette.
+const PADS = [
+  { name: 'Röd',    bg: '#D93A40', ink: '#fff',    lp: [5, 7] },
+  { name: 'Orange', bg: '#FF8B3E', ink: '#1F0E00', lp: [9, 11] },
+  { name: 'Gul',    bg: '#FFC53D', ink: '#211A00', lp: [13, 15] },
+  { name: 'Grön',   bg: '#46D08A', ink: '#04200F', lp: [21, 23] },
+  { name: 'Turkos', bg: '#3CCBDA', ink: '#03222A', lp: [37, 39] },
+  { name: 'Blå',    bg: '#4C6FE6', ink: '#fff',    lp: [45, 47] },
+  { name: 'Lila',   bg: '#8A55DB', ink: '#fff',    lp: [49, 51] },
+  { name: 'Rosa',   bg: '#D6377B', ink: '#fff',    lp: [57, 59] },
+  { name: 'Grå',    bg: '#6C7180', ink: '#fff',    lp: [3, 1] },
+];
+const pad = t => PADS[t.color ?? 0] || PADS[0];
+const TILE_PX = { s: 84, m: 108, l: 150 };
 const SCOPES = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative user-library-read';
+const SILENT_URI = 'spotify:track:3mkOlbSv5RYadx0JsjTrKq';
+const QUICK = 0.5;   // seconds: how fast a playing song gives way to the next one
 
-const $ = s => document.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now());
-const fmt = s => { if (s == null || !isFinite(s)) return '–'; s = Math.max(0, s); const m = Math.floor(s / 60); const r = s - m * 60; return m + ':' + String(Math.floor(r)).padStart(2, '0'); };
-const fmt1 = s => { if (s == null || !isFinite(s)) return '–'; const m = Math.floor(s / 60); const r = s - m * 60; return m + ':' + r.toFixed(1).padStart(4, '0'); };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmt = s => { if (s == null || !isFinite(s)) return '–'; s = Math.max(0, s); return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0'); };
+const fmt1 = s => { if (s == null || !isFinite(s)) return '–'; s = Math.max(0, s); return Math.floor(s / 60) + ':' + (s % 60).toFixed(1).padStart(4, '0').replace('.', ','); };
 
-function toast(msg, ms = 2600) {
-  const t = $('#toast'); t.textContent = msg; t.style.display = 'block';
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms);
+const ICON = {
+  chevron: '<path d="m10 6 6 6-6 6"/>', check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>', up: '<path d="m6 14 6-6 6 6"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>', plus: '<path d="M12 5v14M5 12h14"/>', play: '<path d="M8 5.5v13l10-6.5z"/>',
+  trash: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
+  next: '<path d="M4 12h11M11 7l5 5-5 5M20 6v12"/>',
+  loop: '<path d="M17 3l3 3-3 3"/><path d="M4 11v-1a4 4 0 0 1 4-4h12"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v1a4 4 0 0 1-4 4H4"/>',
+  sfx: '<path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/>',
+  note: '<path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+  grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+};
+const ic = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
+
+function toast(msg, opt = {}) {
+  if (typeof opt === 'number') opt = { ms: opt };
+  const el = $('#toast');
+  el.innerHTML = `<span>${esc(msg)}</span>` + (opt.action ? `<button>${esc(opt.action)}</button>` : '');
+  el.style.display = 'flex';
+  if (opt.action) $('button', el).onclick = () => { el.style.display = 'none'; opt.onAction(); };
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { el.style.display = 'none'; }, opt.ms || (opt.action ? 7000 : 3000));
 }
 
 /* ---------------- storage (IndexedDB) ---------------- */
@@ -171,8 +329,8 @@ const DB = {
   },
   tx(store, mode, fn) {
     return new Promise((res, rej) => {
-      const t = this.db.transaction(store, mode); const s = t.objectStore(store);
-      const r = fn(s); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+      const t = this.db.transaction(store, mode); const r = fn(t.objectStore(store));
+      t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
     });
   },
   get(store, k) { return this.tx(store, 'readonly', s => s.get(k)); },
@@ -184,454 +342,576 @@ const DB = {
 
 /* ---------------- state ---------------- */
 const defaultState = () => ({
-  version: 1,
-  settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, keepAlive: true, silentUri: 'spotify:track:3mkOlbSv5RYadx0JsjTrKq', lpIn: '', lpOut: '' },
+  version: 2,
+  settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, keepAlive: true, silentUri: SILENT_URI, lpIn: '', lpOut: '', tileSize: 'm' },
   groups: [{ id: uid(), name: 'Match' }],
   tiles: [],
   curGroup: null,
 });
 let S = defaultState();
-let editMode = false;
-let lpPage = 0;          // Launchpad page within current group
-let saveTimer = null;
+let editMode = false;      // tap a tile to edit instead of play
+let moving = null;         // id of a tile being moved
+let searchQ = null;        // null = not searching
+let lpPage = 0;            // Launchpad page within the current group
+let sheetHook = null;      // lets an open sheet react to playback changes
+let saveTimer = 0;
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { DB.put('kv', 'state', S).catch(e => console.error(e)); Sync.schedule(); }, 250); }
-function group(id) { return S.groups.find(g => g.id === id); }
-function curGroup() { return group(S.curGroup) || S.groups[0]; }
-function tilesOf(gid) { return S.tiles.filter(t => t.groupId === gid).sort((a, b) => a.order - b.order); }
-function tile(id) { return S.tiles.find(t => t.id === id); }
-function isMusic(t) { return t.kind === 'spotify' || !t.overlay; }
-function playLen(t) { const st = t.start || 0; const en = t.stop || t.duration || 0; return Math.max(0, en - st); }
-function pinnedSfx() { const out = []; for (const g of S.groups) for (const t of tilesOf(g.id)) if (t.kind === 'local' && t.overlay && out.length < 8) out.push(t); return out; }
-function renumber(gid) { tilesOf(gid).forEach((t, i) => t.order = i); }
+const group = id => S.groups.find(g => g.id === id);
+const curGroup = () => group(S.curGroup) || S.groups[0];
+const tilesOf = gid => S.tiles.filter(t => t.groupId === gid).sort((a, b) => a.order - b.order);
+const tile = id => S.tiles.find(t => t.id === id);
+const isMusic = t => t.kind === 'spotify' || !t.overlay;
+const playLen = t => Math.max(0, (t.stop || t.duration || 0) - (t.start || 0));
+const renumber = gid => tilesOf(gid).forEach((t, i) => { t.order = i; });
+// The first eight sound effects live in the horn strip (and on the Launchpad's bottom row), whatever group is open.
+function horns() { const out = []; for (const g of S.groups) for (const t of tilesOf(g.id)) if (!isMusic(t) && out.length < 8) out.push(t); return out; }
+function gridTiles(gid) { const h = new Set(horns().map(t => t.id)); return tilesOf(gid).filter(t => !h.has(t.id)); }
+const sheetOpen = () => $('#scrim').classList.contains('open');
+const soundLocked = () => !(navigator.userActivation ? navigator.userActivation.hasBeenActive : SP.activated);
 
-/* ---------------- Spotify auth (PKCE) ---------------- */
+/* ---------------- Spotify: login (PKCE) and the in-browser player ---------------- */
 const SP = {
   get clientId() { return localStorage.getItem('sp_client') || ''; },
   set clientId(v) { localStorage.setItem('sp_client', v.trim()); },
   get redirect() { return location.origin + location.pathname.replace(/index\.html$/, ''); },
   token: localStorage.getItem('sp_at') || '', exp: +localStorage.getItem('sp_exp') || 0, refresh: localStorage.getItem('sp_rt') || '',
-  player: null, deviceId: null, ready: false, sdkLoaded: false, lastState: null, activated: false,
-  status: 'off', // off | auth | ready | error
+  player: null, deviceId: null, ready: false, sdkLoaded: false, activated: false,
+  status: 'off',      // off | starting | ready | error
+  sounding: false,    // a real track (not the silent keep-alive) may be audible
+  lastVol: -1,
+  get loggedIn() { return !!this.refresh; },
 
   async login() {
-    if (!this.clientId) { toast('Fyll i Spotify Client ID i inställningarna först'); openSettings(); return; }
+    if (!this.clientId) { toast('Fyll i Client ID först.'); return; }
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(64)));
     const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
     sessionStorage.setItem('sp_ver', verifier);
-    const p = new URLSearchParams({ client_id: this.clientId, response_type: 'code', redirect_uri: this.redirect, code_challenge_method: 'S256', code_challenge: challenge, scope: SCOPES });
-    location.href = 'https://accounts.spotify.com/authorize?' + p;
+    location.href = 'https://accounts.spotify.com/authorize?' + new URLSearchParams({ client_id: this.clientId, response_type: 'code', redirect_uri: this.redirect, code_challenge_method: 'S256', code_challenge: challenge, scope: SCOPES });
   },
   async handleRedirect() {
     const q = new URLSearchParams(location.search);
-    if (q.get('error')) { toast('Spotify-inloggning avbröts: ' + q.get('error')); history.replaceState(null, '', this.redirect); return; }
+    if (q.get('error')) { history.replaceState(null, '', this.redirect); toast('Spotify-inloggningen avbröts.'); return; }
     const code = q.get('code'); if (!code) return;
     history.replaceState(null, '', this.redirect);
-    const body = new URLSearchParams({ client_id: this.clientId, grant_type: 'authorization_code', code, redirect_uri: this.redirect, code_verifier: sessionStorage.getItem('sp_ver') || '' });
-    await this.tokenReq(body);
+    await this.tokenReq(new URLSearchParams({ client_id: this.clientId, grant_type: 'authorization_code', code, redirect_uri: this.redirect, code_verifier: sessionStorage.getItem('sp_ver') || '' }));
+    toast('Spotify är kopplat.');
   },
   async tokenReq(body) {
     const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     const j = await r.json();
-    if (!r.ok) { console.warn(j); throw new Error(j.error_description || j.error || 'token'); }
+    if (!r.ok) throw new Error(j.error_description || j.error || 'Spotify nekade inloggningen');
     this.token = j.access_token; this.exp = Date.now() + (j.expires_in - 60) * 1000;
     if (j.refresh_token) this.refresh = j.refresh_token;
     localStorage.setItem('sp_at', this.token); localStorage.setItem('sp_exp', this.exp); localStorage.setItem('sp_rt', this.refresh);
   },
   async getToken() {
     if (this.token && Date.now() < this.exp) return this.token;
-    if (!this.refresh) throw new Error('Inte inloggad på Spotify');
+    if (!this.refresh) throw new Error('Koppla Spotify i menyn först.');
     await this.tokenReq(new URLSearchParams({ client_id: this.clientId, grant_type: 'refresh_token', refresh_token: this.refresh }));
     return this.token;
   },
-  logout() { ['sp_at', 'sp_exp', 'sp_rt'].forEach(k => localStorage.removeItem(k)); this.token = this.refresh = ''; this.exp = 0; try { this.player && this.player.disconnect(); } catch (e) {} this.player = null; this.ready = false; this.status = 'off'; renderStatus(); },
-  get loggedIn() { return !!this.refresh; },
+  logout() {
+    ['sp_at', 'sp_exp', 'sp_rt'].forEach(k => localStorage.removeItem(k));
+    this.token = this.refresh = ''; this.exp = 0;
+    try { this.player && this.player.disconnect(); } catch (e) {}
+    this.player = null; this.ready = false; this.sounding = false; this.status = 'off'; renderStatus();
+  },
 
   async api(path, opt = {}) {
     const tok = await this.getToken();
-    const r = await fetch('https://api.spotify.com/v1' + path, { ...opt, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', ...(opt.headers || {}) } });
-    if (r.status === 204) return null;
+    const ac = new AbortController(); const timer = setTimeout(() => ac.abort(), 8000);   // never let a dead network freeze playback
+    let r;
+    try { r = await fetch('https://api.spotify.com/v1' + path, { ...opt, signal: ac.signal, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', ...(opt.headers || {}) } }); }
+    catch (e) { throw new Error('Spotify svarar inte. Kontrollera internet.'); }
+    finally { clearTimeout(timer); }
+    if (r.status === 204 || r.status === 202) return null;
     const txt = await r.text(); let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
-    if (!r.ok) { const m = (j && j.error && (j.error.message || j.error.reason)) || r.status; throw new Error('Spotify: ' + m); }
+    if (!r.ok) { const err = new Error('Spotify: ' + ((j && j.error && (j.error.message || j.error.reason)) || r.status)); err.status = r.status; throw err; }
     return j;
   },
 
   initPlayer() {
     if (!this.loggedIn || this.player) return;
-    this.status = 'auth'; renderStatus();
+    this.status = 'starting'; renderStatus();
+    const fail = msg => { this.status = 'error'; renderStatus(); if (msg) toast(msg, 5000); };
     const make = () => {
-      const p = new Spotify.Player({ name: 'Matchljud', getOAuthToken: cb => this.getToken().then(cb).catch(e => { toast(e.message); }), volume: 0.8 });
+      const p = new Spotify.Player({ name: 'Matchljud', volume: 0.8, getOAuthToken: cb => this.getToken().then(cb).catch(e => toast(e.message)) });
       p.addListener('ready', ({ device_id }) => { this.deviceId = device_id; this.ready = true; this.status = 'ready'; renderStatus(); this.transfer(); });
-      p.addListener('not_ready', () => { this.ready = false; this.status = 'auth'; renderStatus(); });
-      p.addListener('initialization_error', ({ message }) => { this.status = 'error'; renderStatus(); toast('Spotify-spelaren kunde inte starta: ' + message, 5000); });
-      p.addListener('authentication_error', ({ message }) => { this.status = 'error'; renderStatus(); toast('Spotify-inloggning: ' + message, 5000); });
-      p.addListener('account_error', () => { this.status = 'error'; renderStatus(); toast('Spotify Premium krävs', 5000); });
+      p.addListener('not_ready', () => { this.ready = false; this.status = 'starting'; renderStatus(); });
+      p.addListener('initialization_error', ({ message }) => fail('Spotify-spelaren startade inte: ' + message));
+      p.addListener('authentication_error', () => fail('Spotify-inloggningen gäller inte längre. Logga in igen i menyn.'));
+      p.addListener('account_error', () => fail('Spotify Premium krävs för att spela här.'));
       p.addListener('playback_error', ({ message }) => console.warn('playback_error', message));
-      p.addListener('autoplay_failed', () => toast('Tryck på en ruta igen för att starta ljudet'));
-      p.addListener('player_state_changed', st => { this.lastState = st; Engine.onSpotifyState(st); });
-      p.connect().then(ok => { if (!ok) { this.status = 'error'; renderStatus(); } });
+      p.addListener('autoplay_failed', () => toast('Tryck en gång på skärmen, sedan spelar låten.'));
+      p.addListener('player_state_changed', st => Engine.onSpotifyState(st));
+      p.connect().then(ok => { if (!ok) fail(); });
       this.player = p;
     };
-    if (window.Spotify) make();
-    else {
-      window.onSpotifyWebPlaybackSDKReady = make;
-      if (!this.sdkLoaded) { this.sdkLoaded = true; const s = document.createElement('script'); s.src = 'https://sdk.scdn.co/spotify-player.js'; s.onerror = () => { this.status = 'error'; renderStatus(); toast('Kunde inte ladda Spotify (internet?)'); }; document.head.appendChild(s); }
+    if (window.Spotify) return make();
+    window.onSpotifyWebPlaybackSDKReady = make;
+    if (!this.sdkLoaded) {
+      this.sdkLoaded = true;
+      const s = document.createElement('script'); s.src = 'https://sdk.scdn.co/spotify-player.js';
+      s.onerror = () => { this.sdkLoaded = false; fail('Spotify kunde inte laddas. Kontrollera internet.'); };
+      document.head.appendChild(s);
     }
   },
   async transfer() { try { await this.api('/me/player', { method: 'PUT', body: JSON.stringify({ device_ids: [this.deviceId], play: false }) }); } catch (e) { console.warn(e); } },
-  activate() { if (this.player && !this.activated) { try { this.player.activateElement(); this.activated = true; } catch (e) {} } },
-  async setVol(v) { if (this.player) { try { await this.player.setVolume(Math.max(0, Math.min(1, v))); } catch (e) {} } },
-  async play(uri, posSec) {
-    if (!this.ready) throw new Error(this.loggedIn ? 'Spotify-spelaren är inte redo än' : 'Logga in på Spotify i menyn');
-    await this.api('/me/player/play?device_id=' + encodeURIComponent(this.deviceId), { method: 'PUT', body: JSON.stringify({ uris: [uri], position_ms: Math.round((posSec || 0) * 1000) }) });
+  // Must run inside a tap: browsers refuse to start sound otherwise.
+  activate() {
+    if (!this.player || this.activated) return;
+    if (navigator.userActivation && !navigator.userActivation.isActive) return;
+    try { this.player.activateElement(); this.activated = true; } catch (e) {}
   },
-  async pause() { if (this.player) { try { await this.player.pause(); } catch (e) {} } },
-  async seek(sec) { if (this.player) { try { await this.player.seek(Math.round(sec * 1000)); } catch (e) {} } },
+  setVol(v) {
+    v = clamp(v, 0, 1); if (!this.player || Math.abs(v - this.lastVol) < 0.004) return;
+    this.lastVol = v; try { Promise.resolve(this.player.setVolume(v)).catch(() => {}); } catch (e) {}
+  },
+  async play(uri, sec) {
+    if (!this.ready) throw new Error(this.loggedIn ? 'Spotify startar fortfarande. Försök igen om en stund.' : 'Koppla Spotify i menyn för att spela den här låten.');
+    const send = () => this.api('/me/player/play?device_id=' + encodeURIComponent(this.deviceId), { method: 'PUT', body: JSON.stringify({ uris: [uri], position_ms: Math.round((sec || 0) * 1000) }) });
+    try { await send(); }
+    catch (e) { if (e.status !== 404 && !(e.status >= 500)) throw e; await sleep(500); await send(); }   // the player device can go stale; one retry
+  },
+  pause() { return this.player ? Promise.race([Promise.resolve(this.player.pause()).catch(() => {}), sleep(1500)]) : Promise.resolve(); },
+  seek(sec) { return this.player ? Promise.race([Promise.resolve(this.player.seek(Math.round(sec * 1000))).catch(() => {}), sleep(1500)]) : Promise.resolve(); },
 };
-function b64url(bytes) { let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function b64url(bytes) { let s = ''; bytes.forEach(b => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 
 /* ---------------- local audio (Web Audio) ---------------- */
 const AudioL = {
-  ctx: null, master: null, buffers: new Map(),
+  ctx: null, master: null, music: null, buffers: new Map(), voices: new Set(),
   ensure() {
-    if (!this.ctx) { this.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' }); this.master = this.ctx.createGain(); this.master.connect(this.ctx.destination); }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      this.master = this.ctx.createGain(); this.master.connect(this.ctx.destination);
+      this.music = this.ctx.createGain(); this.music.connect(this.master);
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
     return this.ctx;
   },
   async buffer(soundId) {
     if (this.buffers.has(soundId)) return this.buffers.get(soundId);
-    const blob = await DB.get('audio', soundId); if (!blob) throw new Error('Ljudfilen saknas');
+    const blob = await DB.get('audio', soundId); if (!blob) throw new Error('Ljudfilen finns inte kvar på den här enheten.');
     const buf = await this.ensure().decodeAudioData(await blob.arrayBuffer());
     this.buffers.set(soundId, buf); return buf;
   },
-  preload() { S.tiles.filter(t => t.kind === 'local').forEach(t => this.buffer(t.soundId).catch(() => {})); },
-  // returns {src, gain}
-  async start(t, vol, offset = 0, fadeIn = 0) {
+  preload() { new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId)).forEach(id => this.buffer(id).catch(() => {})); },
+  setMusic(v) { if (this.ctx) this.music.gain.setTargetAtTime(v, this.ctx.currentTime, 0.015); },
+  // bus 'music' is driven by Mix; bus 'sfx' gets its own gain so effects can pile up on top
+  async start(t, bus, vol, offset = 0) {
     const ctx = this.ensure(); const buf = await this.buffer(t.soundId);
-    const src = ctx.createBufferSource(); src.buffer = buf; const g = ctx.createGain();
-    const now = ctx.currentTime;
-    if (fadeIn > 0) { g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + fadeIn); } else g.gain.setValueAtTime(vol, now);
-    src.connect(g); g.connect(this.master);
-    const end = (t.overlay && t.stop && t.stop > offset) ? t.stop - offset : undefined;
-    if (end === undefined) src.start(0, offset); else src.start(0, offset, end);
-    return { src, gain: g, startedAt: now - offset, duration: buf.duration };
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    let out = this.music;
+    if (bus === 'sfx') {
+      out = ctx.createGain(); out.gain.value = vol; out.connect(this.master);
+      this.voices.add(src); src.addEventListener('ended', () => this.voices.delete(src));
+    }
+    src.connect(out);
+    offset = clamp(offset, 0, Math.max(0, buf.duration - 0.01));
+    if (bus === 'sfx' && t.stop && t.stop > offset) src.start(0, offset, t.stop - offset); else src.start(0, offset);
+    return { src, startedAt: ctx.currentTime - offset };
+  },
+  killSfx() { this.voices.forEach(s => { try { s.stop(); } catch (e) {} }); this.voices.clear(); },
+};
+
+/* ---------------- Mix: one fader for the music channel (Spotify and local music share it) ---------------- */
+const Mix = {
+  level: 1,   // fade envelope 0..1
+  base: 1,    // tile volume × music volume
+  duck: 1,    // 0 during a dropout
+  job: null,
+  apply() { const v = this.level * this.level * this.base * this.duck; SP.setVol(v); AudioL.setMusic(v); },   // squared: fades sound even to the ear
+  set(v) { if (this.job) this.job.stop(); this.level = v; this.apply(); },
+  ramp(to, sec) {
+    if (this.job) this.job.stop();
+    if (!(sec > 0.04) || this.level === to) { this.level = to; this.apply(); return Promise.resolve(); }
+    return new Promise(done => {
+      const j = this.job = { from: this.level, to, t0: performance.now(), ms: sec * 1000,
+        stop: () => { clearInterval(j.iv); if (this.job === j) this.job = null; done(); } };
+      j.iv = setInterval(() => {
+        const k = Math.min(1, (performance.now() - j.t0) / j.ms);
+        this.level = j.from + (j.to - j.from) * k; this.apply();
+        if (k >= 1) j.stop();
+      }, 40);
+    });
+  },
+  // A fade-out already running must not hold up the next song: shorten what is left of it.
+  hurry(sec) {
+    const j = this.job; if (!j || j.to !== 0) return;
+    if (j.ms - (performance.now() - j.t0) > sec * 1000) { j.from = this.level; j.t0 = performance.now(); j.ms = Math.max(1, sec * 1000); }
   },
 };
 
-/* ---------------- playback engine ---------------- */
+/* ---------------- playback engine ----------------
+   Every request (play, fade, stop) is queued and runs one at a time, so two songs can never
+   fight over the player. `gen` marks the latest request; older ones give up when they notice. */
 const Engine = {
-  cur: null,      // {tile, kind, startPos, t0, fading, ending, local?:{src,gain}}
-  sfx: new Map(), // tileId -> count of active voices
-  busy: false,
+  cur: null,           // { tile, kind, phase: loading|playing|fading|ending, ... }
+  sfx: new Map(),      // tile id -> number of voices sounding
+  gen: 0, pending: 0, chain: Promise.resolve(), liveLocal: null,
 
-  vol(t) { const tv = (t.volume == null || t.volume < 0) ? 100 : t.volume; return (tv / 100) * (S.settings.musicVol / 100); },
-  sfxVol(t) { const tv = (t.volume == null || t.volume < 0) ? 100 : t.volume; return (tv / 100) * (S.settings.sfxVol / 100); },
+  run(fn) {
+    this.pending++;
+    const p = this.chain.then(fn).catch(e => console.warn(e)).finally(() => { this.pending--; });
+    this.chain = p; return p;
+  },
+  vol(t) { return (t.volume >= 0 ? t.volume : 100) / 100 * (S.settings.musicVol / 100); },
+  sfxVol(t) { return (t.volume >= 0 ? t.volume : 100) / 100 * (S.settings.sfxVol / 100); },
   fadeOutSec(t) { return t && t.fadeOut >= 0 ? t.fadeOut : S.settings.fadeOut; },
   fadeInSec(t) { return t && t.fadeIn >= 0 ? t.fadeIn : S.settings.fadeIn; },
-
+  endOf(c) { return c.tile.stop || c.dur || c.tile.duration || 0; },
   position() {
     const c = this.cur; if (!c) return 0;
-    if (c.kind === 'local') return c.local ? AudioL.ctx.currentTime - c.local.startedAt : c.segStart;
-    if (c.paused) return c.pausedAt;
-    return c.startPos + (performance.now() - c.t0) / 1000;
+    if (c.phase === 'loading') return c.pos0;
+    if (c.kind === 'local') return c.local ? AudioL.ctx.currentTime - c.local.startedAt : c.pos0;
+    return c.paused ? c.pos0 : c.pos0 + (performance.now() - c.t0) / 1000;
   },
+  nextAfter(t) { const list = tilesOf(t.groupId).filter(isMusic); return list[list.findIndex(x => x.id === t.id) + 1] || null; },
 
-  async trigger(t, opts = {}) {
+  // A tap on a tile, a pad or a bound key.
+  trigger(t) {
+    if (!t) return;
     SP.activate(); AudioL.ensure();
     if (!isMusic(t)) return this.playSfx(t);
-    if (this.cur && this.cur.tile.id === t.id && !opts.force) return this.fadeOut();
-    return this.playMusic(t, opts);
+    const c = this.cur;
+    if (c && c.tile.id === t.id) {
+      if (c.phase === 'loading' || performance.now() - c.born < 400) return;   // a nervous double tap must not stop the song it just started
+      return this.fadeOut();
+    }
+    this.play(t);
   },
 
   async playSfx(t) {
+    if (soundLocked()) return toast('Tryck en gång på skärmen först. Webbläsaren spelar inget ljud innan dess.', 5000);
     try {
-      const v = await AudioL.start(t, this.sfxVol(t), t.start || 0, 0);
-      this.sfx.set(t.id, (this.sfx.get(t.id) || 0) + 1);
-      v.src.onended = () => { const n = (this.sfx.get(t.id) || 1) - 1; if (n <= 0) this.sfx.delete(t.id); else this.sfx.set(t.id, n); paintTile(t.id); LP.paintTile(t); renderSfx(); };
-      if (S.settings.markPlayed) { t.played = true; save(); }
-      paintTile(t.id, true); LP.paintTile(t, true); renderSfx();
+      const v = await AudioL.start(t, 'sfx', this.sfxVol(t), t.start || 0);
+      this.sfx.set(t.id, (this.sfx.get(t.id) || 0) + 1); UI.refresh();
+      v.src.addEventListener('ended', () => { const n = (this.sfx.get(t.id) || 1) - 1; if (n > 0) this.sfx.set(t.id, n); else this.sfx.delete(t.id); UI.refresh(); });
     } catch (e) { toast(e.message); }
   },
 
-  async playMusic(t, opts = {}) {
+  play(t, o = {}) {
+    const gen = ++this.gen;
+    const start = o.from != null ? o.from : (t.start || 0);
+    const c = this.cur = { tile: t, kind: t.kind, phase: 'loading', born: performance.now(), segStart: t.start || 0, pos0: start, t0: 0, heardAt: 0, loopsLeft: t.loop || 0, paused: false, local: null };
+    if (S.settings.markPlayed && !o.preview && !t.played) { t.played = true; save(); }
     Idle.on = false;
-    const prev = this.cur;
-    const myToken = this.token = (this.token || 0) + 1;
-    // fade out whatever plays (quick, so the new song starts promptly)
-    if (prev) { await this.stopCurrent(opts.cut ? 0 : Math.min(0.8, this.fadeOutSec(prev.tile)), true, prev.kind === 'spotify' && t.kind === 'spotify'); }
-    if (myToken !== this.token) return;
-    if (S.settings.markPlayed) t.played = true;
-    const fi = this.fadeInSec(t);
-    const start = opts.fromStart ? 0 : (t.start || 0);
-    try {
-      if (t.kind === 'spotify') {
-        await SP.setVol(fi > 0 ? 0 : this.vol(t));
-        await SP.play(t.uri, start);
-        this.cur = { tile: t, kind: 'spotify', startPos: start, t0: performance.now(), paused: false, loopsLeft: t.loop || 0, segStart: start };
-        if (fi > 0) this.ramp(0, this.vol(t), fi);
-      } else {
-        const v = await AudioL.start(t, this.vol(t), start, fi);
-        this.cur = { tile: t, kind: 'local', local: v, loopsLeft: t.loop || 0, segStart: start };
-        this.watchLocal(this.cur, v);
+    Mix.hurry(o.cut ? 0 : QUICK);
+    UI.refresh();   // the tile lights up at once, before Spotify has answered
+    return this.run(async () => {
+      if (gen !== this.gen) return;
+      await this.silence(o.cut ? 0 : QUICK);
+      if (gen !== this.gen) return;
+      const fadeIn = this.fadeInSec(t);
+      Mix.base = this.vol(t); Mix.duck = 1; Mix.set(fadeIn > 0 ? 0 : 1);
+      try {
+        if (t.kind === 'spotify') {
+          SP.sounding = true;
+          await SP.play(t.uri, start);
+        } else {
+          if (soundLocked()) throw new Error('Tryck en gång på skärmen först. Webbläsaren spelar inget ljud innan dess.');
+          const v = await AudioL.start(t, 'music', 1, start);
+          if (gen !== this.gen) { try { v.src.stop(); } catch (e) {} return; }
+          this.watchLocal(c, v);
+        }
+      } catch (e) {
+        if (t.kind === 'spotify') { SP.sounding = false; await SP.pause(); }
+        if (this.cur === c) { this.cur = null; UI.refresh(); }
+        toast(e.message, 4500); return;
       }
-    } catch (e) { toast(e.message, 4000); this.cur = null; renderNow(); return; }
-    if (S.settings.markPlayed) { t.played = true; save(); }
-    renderAllTiles(); LP.paintAll(); renderNow();
+      if (gen !== this.gen) return;   // a newer request took over while this one was starting
+      c.phase = 'playing'; c.pos0 = start; c.t0 = c.heardAt = performance.now();
+      if (fadeIn > 0) Mix.ramp(1, fadeIn);
+      UI.refresh();
+    });
+  },
+  watchLocal(c, v) {
+    this.liveLocal = c.local = v;
+    v.src.onended = () => {
+      if (this.cur !== c || c.local !== v || c.phase !== 'playing') return;
+      if (c.loopsLeft) return this.loop(c);
+      this.liveLocal = null; this.advance(c);
+    };
   },
 
-  // smooth Spotify volume ramp
-  async ramp(from, to, sec) {
-    const c = this.cur; const steps = Math.max(1, Math.round(sec * 20));
-    for (let i = 1; i <= steps; i++) {
-      if (this.cur !== c) return;
-      await SP.setVol(from + (to - from) * (i / steps)); await sleep(sec * 1000 / steps);
-    }
+  // Make the music channel quiet: fade whatever is audible, then stop it.
+  async silence(sec) {
+    if ((this.liveLocal || SP.sounding) && Mix.level > 0) await Mix.ramp(0, sec);
+    const v = this.liveLocal;
+    if (v) { this.liveLocal = null; v.src.onended = null; try { v.src.stop(); } catch (e) {} }
+    if (SP.sounding) { SP.sounding = false; await SP.pause(); }
   },
 
-  async stopCurrent(fadeSec, keepUi, skipPause) {
+  fadeOut() {
     const c = this.cur; if (!c) return;
-    c.stopping = true;
-    if (c.kind === 'local' && !c.local) { if (this.cur === c) this.cur = null; }
-    else if (c.kind === 'local') {
-      const g = c.local.gain.gain; const now = AudioL.ctx.currentTime;
-      g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + Math.max(0.02, fadeSec));
-      const src = c.local.src; setTimeout(() => { try { src.stop(); } catch (e) {} }, Math.max(20, fadeSec * 1000) + 30);
-      if (this.cur === c) this.cur = null;
-      if (fadeSec > 0) await sleep(fadeSec * 1000);
-    } else {
-      if (fadeSec > 0) { const v0 = this.vol(c.tile); const steps = Math.max(1, Math.round(fadeSec * 20)); for (let i = 1; i <= steps; i++) { if (this.cur !== c) break; await SP.setVol(v0 * (1 - i / steps)); await sleep(fadeSec * 1000 / steps); } }
-      if (!skipPause) await SP.pause();
-      if (this.cur === c) this.cur = null;
-    }
-    if (!keepUi) { renderAllTiles(); LP.paintAll(); renderNow(); }
+    if (c.phase === 'fading' || c.phase === 'ending') return Mix.hurry(0);   // second press: stop now
+    const sec = c.phase === 'loading' ? 0 : this.fadeOutSec(c.tile);
+    ++this.gen; c.phase = 'fading'; UI.refresh();
+    this.run(async () => { await this.silence(sec); if (this.cur === c) { this.cur = null; UI.refresh(); } });
   },
-
-  async fadeOut() { this.token = (this.token || 0) + 1; await this.stopCurrent(this.fadeOutSec(this.cur && this.cur.tile)); },
-  async stopAll() {
-    this.token = (this.token || 0) + 1;
-    await this.stopCurrent(0);
-    // kill sfx: easiest is to bounce master gain
-    if (AudioL.ctx) { const old = AudioL.master; AudioL.master = AudioL.ctx.createGain(); AudioL.master.connect(AudioL.ctx.destination); old.disconnect(); }
-    this.sfx.clear(); renderAllTiles(); LP.paintAll();
+  stopAll() {
+    ++this.gen; this.cur = null; Mix.hurry(0);
+    AudioL.killSfx(); this.sfx.clear(); UI.refresh();
+    this.run(() => this.silence(0));
   },
-  restart() { if (this.cur) this.playMusic(this.cur.tile, { force: true, cut: true }); },
+  restart() { if (this.cur) this.play(this.cur.tile, { cut: true }); },
 
-  watchLocal(c, v) { v.src.onended = () => { if (this.cur === c && c.local === v && !c.stopping) { if (c.loopsLeft) this.loopRestart(c); else this.ended(); } }; },
-  async loopRestart(c) {
+  // The song reached its stop point or its natural end.
+  finish(c, sec) {
+    if (c.phase !== 'playing') return;
+    c.phase = 'ending'; UI.refresh();
+    this.run(async () => { if (this.cur !== c) return; await this.silence(sec); this.advance(c); });
+  },
+  advance(c) {
+    if (this.cur !== c) return;
+    this.cur = null; UI.refresh();
+    const nx = c.tile.next && this.nextAfter(c.tile);
+    if (nx) this.play(nx);
+  },
+  async loop(c) {
+    if (c.looping) return; c.looping = true;
     if (c.loopsLeft > 0) c.loopsLeft--;
-    if (c.kind === 'spotify') { await SP.seek(c.segStart); c.startPos = c.segStart; c.t0 = performance.now(); }
-    else {
-      const old = c.local; c.local = null; try { old.src.onended = null; old.src.stop(); } catch (e) {}
-      const v = await AudioL.start(c.tile, this.vol(c.tile), c.segStart, 0); if (this.cur !== c) { try { v.src.stop(); } catch (e) {} return; }
-      c.local = v; this.watchLocal(c, v);
-    }
-  },
-  inDrop(t, pos) { return (t.drops || []).some(d => pos >= d.at && pos < d.at + d.len); },
-  async ended() {
-    const c = this.cur; if (!c) return;
-    this.cur = null; renderAllTiles(); LP.paintAll(); renderNow();
-    if (c.tile.next) {
-      const list = tilesOf(c.tile.groupId).filter(isMusic); const i = list.findIndex(x => x.id === c.tile.id);
-      const nx = list[i + 1]; if (nx) this.playMusic(nx);
-    }
+    try {
+      if (c.kind === 'spotify') {
+        await SP.seek(c.segStart);
+        if (this.cur === c) { c.pos0 = c.segStart; c.t0 = c.heardAt = performance.now(); }
+      } else {
+        const old = c.local; old.src.onended = null; try { old.src.stop(); } catch (e) {}
+        const v = await AudioL.start(c.tile, 'music', 1, c.segStart);
+        if (this.cur !== c || c.phase !== 'playing') { try { v.src.stop(); } catch (e) {} return; }
+        this.watchLocal(c, v);
+      }
+    } finally { c.looping = false; UI.refresh(); }
   },
 
+  // Spotify reports what the player is really doing; keep our clock honest.
   onSpotifyState(st) {
     Idle.onState(st);
-    const c = this.cur; if (!c || c.kind !== 'spotify' || !st) return;
+    const c = this.cur; if (!c || c.kind !== 'spotify' || c.phase === 'loading' || !st) return;
     const tr = st.track_window && st.track_window.current_track;
-    const uriOk = tr && (tr.uri === c.tile.uri || (tr.linked_from && tr.linked_from.uri === c.tile.uri));
-    if (!uriOk) return;
-    // resync clock to Spotify's reported position
-    c.startPos = st.position / 1000; c.t0 = performance.now();
+    if (!tr || (tr.uri !== c.tile.uri && !(tr.linked_from && tr.linked_from.uri === c.tile.uri))) return;
+    const pos = st.position / 1000;
+    if (performance.now() - c.heardAt < 1500 && Math.abs(pos - this.position()) > 3) return;   // a late report from before the (re)start
     c.dur = st.duration / 1000;
-    if (st.paused && !c.stopping && st.position === 0 && c.startedOnce) { this.ended(); return; }
-    if (!st.paused) c.startedOnce = true;
-    c.paused = st.paused && !c.stopping; c.pausedAt = st.position / 1000;
-    if (c.paused) { c.startPos = c.pausedAt; }
+    if (st.paused) {
+      if (c.phase === 'playing' && c.rolling && pos < 0.5 && this.position() > 5) { SP.sounding = false; return this.advance(c); }   // the track ran out
+      c.paused = true; c.pos0 = pos;
+    } else { c.rolling = true; c.paused = false; c.pos0 = pos; c.t0 = performance.now(); }
   },
 
+  inDrop(t, pos) { return (t.drops || []).some(d => pos >= d.at && pos < d.at + d.len); },
   tick() {
     const c = this.cur;
-    if (c && !c.stopping) {
-      const pos = this.position();
-      const end = c.tile.stop || c.dur || c.tile.duration || 0;
-      const fo = this.fadeOutSec(c.tile);
-      // audio dropouts (crowd sings along)
-      const drop = this.inDrop(c.tile, pos);
-      if (drop !== !!c.dropped) {
-        c.dropped = drop; const v = drop ? 0 : this.vol(c.tile);
-        if (c.kind === 'spotify') SP.setVol(v); else if (c.local) c.local.gain.gain.setTargetAtTime(v, AudioL.ctx.currentTime, 0.03);
-      }
-      if (end && !c.paused && c.local !== null) {
-        if (c.loopsLeft) { if (pos >= end - (c.kind === 'spotify' && !c.tile.stop ? 0.3 : 0.03) && !c.looping) { c.looping = true; this.loopRestart(c).finally(() => c.looping = false); } }
-        else if (c.tile.stop && pos >= c.tile.stop - fo) { this.endWithFade(c, Math.max(0.05, c.tile.stop - pos)); }
-        else if (c.kind === 'spotify' && pos >= end - 0.25 && pos > 1) { this.endWithFade(c, 0.2); }
+    if (c && c.phase === 'playing' && !c.paused) {
+      const t = c.tile, pos = this.position(), end = this.endOf(c);
+      const duck = this.inDrop(t, pos) ? 0 : 1;
+      if (duck !== Mix.duck) { Mix.duck = duck; Mix.apply(); }
+      if (end > 0) {
+        if (c.loopsLeft) { if (pos >= end - (c.kind === 'spotify' && !t.stop ? 0.35 : 0.03)) this.loop(c); }
+        else if (t.stop) { if (pos >= t.stop - this.fadeOutSec(t)) this.finish(c, Math.max(0.05, t.stop - pos)); }
+        else if (c.kind === 'spotify' && pos > 1 && pos >= end - 0.3) this.finish(c, 0.2);
       }
     }
-    renderNowTime();
-  },
-  async endWithFade(c, sec) {
-    c.stopping = true;
-    if (c.kind === 'local') {
-      const g = c.local.gain.gain; const now = AudioL.ctx.currentTime;
-      g.cancelScheduledValues(now); g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + sec);
-      await sleep(sec * 1000); try { c.local.src.stop(); } catch (e) {}
-      if (this.cur === c) this.ended(); return;
-    }
-    const v0 = this.vol(c.tile); const steps = Math.max(1, Math.round(sec * 20));
-    for (let i = 1; i <= steps; i++) { if (this.cur !== c) return; await SP.setVol(v0 * (1 - i / steps)); await sleep(sec * 1000 / steps); }
-    if (this.cur !== c) return;
-    await SP.pause();
-    this.ended();
+    UI.clock();
   },
 
+  // A random song nobody has heard yet from one group. Starts over when the group runs dry.
   random(gid) {
     const g = group(gid); if (!g) return;
-    let pool = tilesOf(gid).filter(isMusic);
-    if (!pool.length) { toast('Inga låtar i ' + g.name); return; }
-    let cand = pool.filter(t => !t.played && (!this.cur || t.id !== this.cur.tile.id));
-    if (!cand.length) { pool.forEach(t => t.played = false); save(); toast('Alla i ' + g.name + ' spelade — börjar om'); cand = pool.filter(t => !this.cur || t.id !== this.cur.tile.id); if (!cand.length) cand = pool; }
-    const t = cand[Math.floor(Math.random() * cand.length)];
-    this.playMusic(t);
+    SP.activate(); AudioL.ensure();
+    const pool = tilesOf(gid).filter(isMusic);
+    if (!pool.length) return toast(`Det finns inga låtar i ${g.name}.`);
+    const notCur = t => !this.cur || this.cur.tile.id !== t.id;
+    let cand = pool.filter(t => !t.played && notCur(t));
+    if (!cand.length) {
+      pool.forEach(t => { t.played = false; }); save();
+      toast(`Alla låtar i ${g.name} är spelade. Börjar om.`);
+      cand = pool.filter(notCur); if (!cand.length) cand = pool;
+    }
+    this.play(cand[Math.floor(Math.random() * cand.length)]);
   },
 };
-/* ---------------- silent keep-alive track ----------------
-   Like Sports Audio DJ: while nothing plays, loop a silent Spotify track so the
-   JBL never falls asleep (no clipped song starts) and the Spotify player stays active. */
+
+/* ---------------- silent keep-alive ----------------
+   While nothing plays, a silent Spotify track loops so the speaker and the player stay awake
+   and the next song starts without a clipped first second. */
 const Idle = {
-  on: false, since: 0, idleAt: 0, busy: false,
-  get enabled() { return S.settings.keepAlive && SP.ready && SP.activated; },
-  async start() {
-    if (this.busy || Engine.cur) return; this.busy = true;
-    try { await SP.setVol(Math.max(0.05, S.settings.musicVol / 100)); await SP.play(S.settings.silentUri || 'spotify:track:3mkOlbSv5RYadx0JsjTrKq', 0); this.on = true; this.since = performance.now(); }
-    catch (e) { console.warn('silent track', e); this.idleAt = performance.now() + 20000; } // retry later
-    this.busy = false;
-  },
+  on: false, starting: false, since: 0, quietSince: 0, fails: 0, retryAt: 0,
   tick() {
-    if (Engine.cur) { this.on = false; this.idleAt = 0; return; }
-    if (!this.enabled) return;
-    const now = performance.now(); if (!this.idleAt) this.idleAt = now;
-    if (!this.on && now - this.idleAt > 1500) this.start();
-    else if (this.on && now - this.since > 9 * 60 * 1000) { this.on = false; this.start(); }
+    const now = performance.now();
+    if (this.starting) return;
+    if (Engine.cur || Engine.pending) { this.on = false; this.quietSince = 0; return; }
+    if (!S.settings.keepAlive || !SP.ready || !SP.activated) return;
+    if (!this.quietSince) this.quietSince = now;
+    if (now < this.retryAt) return;
+    if ((!this.on && now - this.quietSince > 1500) || (this.on && now - this.since > 9 * 60 * 1000)) this.start();
   },
-  onState(st) { if (!Engine.cur && this.on && st && st.paused && !this.busy && performance.now() - this.since > 3000) { this.on = false; this.idleAt = performance.now(); } },
+  start() {
+    this.starting = true;
+    Engine.run(async () => {
+      try {
+        if (Engine.cur) return;
+        await SP.play(S.settings.silentUri || SILENT_URI, 0);
+        this.on = true; this.since = performance.now(); this.fails = 0;
+      } catch (e) { this.on = false; this.fails++; this.retryAt = performance.now() + Math.min(300000, 15000 * 2 ** this.fails); }
+      finally { this.starting = false; }
+    });
+  },
+  onState(st) {   // something else paused the silent track: try again shortly
+    if (this.on && !Engine.cur && st && st.paused && performance.now() - this.since > 4000) { this.on = false; this.quietSince = performance.now(); this.retryAt = performance.now() + 3000; }
+  },
 };
 setInterval(() => { Engine.tick(); Idle.tick(); }, 100);
 
-/* ---------------- custom triggers (any MIDI button or keyboard key) ---------------- */
-// key format: 'm|<port name>|n<ch>|<note>' or 'm|<port name>|c<ch>|<cc>' or 'k|<KeyboardEvent.code>'
+/* ---------------- triggers: any MIDI button or keyboard key can start a tile or a group's random song ----------------
+   key format: 'm|<port name>|n<channel>|<note>', 'm|<port name>|c<channel>|<cc>' or 'k|<KeyboardEvent.code>' */
 const Trig = {
-  learn: null,
-  midiKey(port, d) { const type = d[0] & 0xF0; if (!((type === 0x90 || type === 0xB0) && d[2] > 0)) return null; return 'm|' + (port.name || port.id) + '|' + (type === 0x90 ? 'n' : 'c') + (d[0] & 0x0F) + '|' + d[1]; },
-  find(key) { return S.tiles.find(t => (t.trig || []).includes(key)); },
+  learn: null,   // { tile } or { group }, plus done()
+  midiKey(port, d) {
+    const type = d[0] & 0xF0; if (!((type === 0x90 || type === 0xB0) && d[2] > 0)) return null;
+    return 'm|' + (port.name || port.id) + '|' + (type === 0x90 ? 'n' : 'c') + (d[0] & 0x0F) + '|' + d[1];
+  },
+  find(key) {
+    const t = S.tiles.find(x => (x.trig || []).includes(key)); if (t) return { tile: t };
+    const g = S.groups.find(x => (x.trig || []).includes(key)); return g ? { group: g } : null;
+  },
+  unbind(key) { [...S.tiles, ...S.groups].forEach(x => { if (x.trig) x.trig = x.trig.filter(k => k !== key); }); },
   handle(key) {
     if (!key) return false;
     if (this.learn) {
-      const t = this.learn; this.learn = null;
-      S.tiles.forEach(x => { if (x.trig) x.trig = x.trig.filter(k => k !== key); });
-      (t.trig = t.trig || []).push(key); save(); toast('Kopplat till ' + this.label(key)); renderAllTiles(); LP.paintAll();
-      if ($('#sheetBg').classList.contains('open') && $('#eTrig')) openTileEditor(t);
+      const l = this.learn; this.learn = null;
+      const target = l.tile || l.group;
+      this.unbind(key); (target.trig = target.trig || []).push(key);
+      save(); UI.build(); toast('Kopplad till ' + this.label(key) + '.');
+      if (l.done) l.done();
       return true;
     }
-    const t = this.find(key); if (!t) return false;
-    if (editMode) openTileEditor(t); else Engine.trigger(t);
+    const hit = this.find(key); if (!hit) return false;
+    if (hit.group) Engine.random(hit.group.id);
+    else if (editMode) openTileEditor(hit.tile);
+    else Engine.trigger(hit.tile);
     return true;
   },
+  parts(key) { const p = key.split('|'); return { kb: p[0] === 'k', code: p[1], port: p[1], cc: p[0] === 'm' && p[2][0] === 'c', num: +p[3] }; },
   label(key) {
-    const p = key.split('|');
-    if (p[0] === 'k') return '⌨ ' + p[1].replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ');
-    const lp = LP.input && (LP.input.name || LP.input.id) === p[1];
-    const num = +p[3];
-    if (lp && p[2][0] === 'n') return 'Pad ' + (9 - Math.floor(num / 10)) + '·' + (num % 10);
-    if (lp) return 'Knapp ' + num;
-    return (p[2][0] === 'n' ? 'Not ' : 'CC ') + num + ' (' + p[1].slice(0, 14) + ')';
+    const p = this.parts(key);
+    if (p.kb) return 'tangent ' + this.keyName(p.code);
+    if (/launchpad|lpmini/i.test(p.port)) {
+      if (!p.cc) return 'pad ' + (9 - Math.floor(p.num / 10)) + '·' + (p.num % 10);
+      if (p.num >= 91 && p.num <= 98) return 'knapp ' + ['▲', '▼', '◀', '▶', 'Session', 'Drums', 'Keys', 'User'][p.num - 91];
+      if (p.num % 10 === 9) return 'sidoknapp ' + (9 - Math.floor(p.num / 10));
+    }
+    return (p.cc ? 'knapp ' : 'not ') + p.num + ' på ' + p.port;
   },
-  lpNotes(t) { if (!LP.input) return []; const name = LP.input.name || LP.input.id; return (t.trig || []).map(k => k.split('|')).filter(p => p[0] === 'm' && p[1] === name).map(p => ({ cc: p[2][0] === 'c', n: +p[3] })); },
+  keyName(code) { return code.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num '); },
+  // short form for the corner of a tile
+  short(key) {
+    const p = this.parts(key); let s;
+    if (p.kb) s = this.keyName(p.code);
+    else if (!/launchpad|lpmini/i.test(p.port)) s = (p.cc ? 'cc ' : 'not ') + p.num;
+    else if (!p.cc) s = (9 - Math.floor(p.num / 10)) + '·' + (p.num % 10);
+    else if (p.num >= 91 && p.num <= 98) s = ['▲', '▼', '◀', '▶', 'Session', 'Drums', 'Keys', 'User'][p.num - 91];
+    else s = 'sida ' + (9 - Math.floor(p.num / 10));
+    return `<kbd>${esc(s)}</kbd>`;   // the keycap outline tells a hand-picked button from a plain grid position
+  },
 };
 
-/* ---------------- Launchpad Mini MK3 (Web MIDI) ---------------- */
+/* ---------------- Launchpad Mini MK3 (Web MIDI, Programmer mode) ----------------
+   LED index = row*10 + column, counted from the bottom left. Rows 8..2 show the open group (56 per page),
+   row 1 the horns. Top row 91..98 and right column 89..19 are control buttons. */
 const LP = {
-  access: null, input: null, output: null, connected: false,
-  SCENE: [89, 79, 69, 59, 49, 39, 29], // right column top→bottom, 19 = stop/solo/mute
+  access: null, input: null, output: null, connected: false, last: {}, timer: 0,
+  SCENE: [89, 79, 69, 59, 49, 39, 29],
   async connect(interactive) {
-    if (!navigator.requestMIDIAccess) { if (interactive) toast('Den här webbläsaren saknar Web MIDI — använd Chrome på Android'); return; }
+    if (!navigator.requestMIDIAccess) { if (interactive) toast('Den här webbläsaren kan inte prata med Launchpad. Använd Chrome.'); return; }
     try { this.access = await navigator.requestMIDIAccess({ sysex: true }); }
-    catch (e) { try { this.access = await navigator.requestMIDIAccess(); } catch (e2) { if (interactive) toast('MIDI nekades: ' + e2.message); return; } }
-    this.access.onstatechange = () => { clearTimeout(this._re); this._re = setTimeout(() => this.pick(), 300); };
+    catch (e) {
+      try { this.access = await navigator.requestMIDIAccess(); }
+      catch (e2) { if (interactive) toast('Chrome fick inte använda MIDI. Tillåt MIDI för sidan och försök igen.', 5000); return; }
+    }
+    this.access.onstatechange = () => { clearTimeout(this.repick); this.repick = setTimeout(() => this.pick(), 300); };
     this.pick(interactive);
   },
   ports() { const ins = [], outs = []; if (this.access) { this.access.inputs.forEach(p => ins.push(p)); this.access.outputs.forEach(p => outs.push(p)); } return { ins, outs }; },
+  isLp: p => /launchpad|lpmini/i.test(p.name || ''),
   choose(list, saved) {
-    if (saved) { const p = list.find(p => p.id === saved || p.name === saved); if (p) return p; }
-    const lp = list.filter(p => /launchpad|lpmini/i.test(p.name || ''));
+    if (saved) { const p = list.find(x => x.id === saved || x.name === saved); if (p) return p; }
+    const lp = list.filter(this.isLp);   // the Launchpad shows two ports; Programmer mode talks on the "MIDI" one, not "DAW"
     return lp.find(p => /midi/i.test(p.name) && !/daw/i.test(p.name)) || lp.find(p => !/daw/i.test(p.name)) || lp[lp.length - 1] || null;
   },
   pick(interactive) {
     const { ins, outs } = this.ports();
+    const was = this.connected;
     this.input = this.choose(ins, S.settings.lpIn); this.output = this.choose(outs, S.settings.lpOut);
     this.connected = !!(this.input && this.output);
-    ins.forEach(p => { p.onmidimessage = e => { if (Trig.handle(Trig.midiKey(p, e.data))) return; if (p === this.input) this.onMsg(e.data); }; });
-    if (this.connected) { this.programmerMode(); setTimeout(() => this.paintAll(), 120); }
-    else if (interactive) toast(ins.length ? 'Hittade MIDI men ingen Launchpad — välj port i inställningar' : 'Ingen Launchpad hittad — kolla kabeln');
+    ins.forEach(p => { p.onmidimessage = e => {
+      if (this.isLp(p) && p !== this.input) return;   // ignore the Launchpad's second port so nothing fires twice
+      const key = Trig.midiKey(p, e.data);
+      if (key && soundLocked()) toast('Tryck en gång på skärmen först. Webbläsaren spelar inget ljud innan dess.', 5000);
+      if (Trig.handle(key)) return;
+      if (p === this.input) this.onMsg(e.data);
+    }; });
+    if (this.connected) { this.programmerMode(); this.render(); }
+    else if (interactive) toast(ins.length ? 'Hittade MIDI men ingen Launchpad. Välj port i menyn.' : 'Ingen Launchpad hittades. Kontrollera kabeln.', 4500);
+    if (was !== this.connected) UI.build();
     renderStatus();
   },
-  send(bytes) { try { this.output && this.output.send(bytes); } catch (e) { console.warn(e); } },
-  programmerMode() { this.send([0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x0E, 0x01, 0xF7]); },
+  send(bytes) { try { if (this.output) this.output.send(bytes); } catch (e) { console.warn(e); } },
+  programmerMode() { this.last = {}; this.send([0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x0E, 0x01, 0xF7]); },
   liveMode() { this.send([0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x0E, 0x00, 0xF7]); },
-  // rows 8..2 = current group (56 pads per page); row 1 (bottom) = pinned sound effects
-  note(i) { const r = 8 - Math.floor(i / 8), c = (i % 8) + 1; return r * 10 + c; },
-  index(note) { const r = Math.floor(note / 10), c = note % 10; if (r < 2 || r > 8 || c < 1 || c > 8) return -1; return (8 - r) * 8 + (c - 1); },
-  groupList() { const g = curGroup(); const pin = new Set(pinnedSfx().map(t => t.id)); return g ? tilesOf(g.id).filter(t => !pin.has(t.id)) : []; },
-  pageTiles() { const all = this.groupList(); const pages = Math.max(1, Math.ceil(all.length / 56)); if (lpPage >= pages) lpPage = pages - 1; return { list: all.slice(lpPage * 56, lpPage * 56 + 56), pages }; },
-  noteOf(t) { const pj = pinnedSfx().findIndex(x => x.id === t.id); if (pj >= 0) return 11 + pj; const i = this.pageTiles().list.findIndex(x => x.id === t.id); return i < 0 ? -1 : this.note(i); },
-  ledFor(t, flash) {
-    const col = LP_COL[t.color ?? 0] || LP_COL[0];
-    const playing = Engine.cur && Engine.cur.tile.id === t.id;
-    if (playing) return [0x92, col[0]];              // pulsing
-    if (flash || Engine.sfx.has(t.id)) return [0x90, 3]; // white while sfx sounds
-    if (t.played && isMusic(t)) return [0x90, col[1]];
-    return [0x90, col[0]];
+  note: i => (8 - Math.floor(i / 8)) * 10 + (i % 8) + 1,
+  index(note) { const r = Math.floor(note / 10), c = note % 10; return (r < 2 || r > 8 || c < 1 || c > 8) ? -1 : (8 - r) * 8 + (c - 1); },
+  list() { const g = curGroup(); return g ? gridTiles(g.id) : []; },
+  page() { const all = this.list(); const pages = Math.max(1, Math.ceil(all.length / 56)); lpPage = clamp(lpPage, 0, pages - 1); return { list: all.slice(lpPage * 56, lpPage * 56 + 56), pages }; },
+  led(t) {   // [lighting type, palette colour]: 0 = steady, 2 = pulsing
+    const col = pad(t).lp;
+    if (Engine.cur && Engine.cur.tile.id === t.id) return [2, col[0]];
+    if (Engine.sfx.has(t.id)) return [0, 3];
+    return [0, t.played && isMusic(t) ? col[1] : col[0]];
   },
-  paintTile(t, flash) {
-    if (!this.connected) return; const n = this.noteOf(t); if (n < 0) { this.paintBound(t, flash); return; }
-    const [st, v] = this.ledFor(t, flash);
-    this.send([0x90, n, 0]); this.send([st, n, v]);
-    this.paintBound(t, flash);
+  groupLed(g) { const music = tilesOf(g.id).filter(isMusic); if (!music.length) return 1; const left = music.some(t => !t.played); return g === curGroup() ? (left ? 21 : 9) : (left ? 23 : 11); },
+  frame() {
+    const f = {}; const { list, pages } = this.page(); const gi = S.groups.indexOf(curGroup());
+    list.forEach((t, i) => { f[this.note(i)] = this.led(t); });
+    horns().forEach((t, j) => { f[11 + j] = this.led(t); });
+    f[91] = [0, lpPage > 0 ? 3 : 1]; f[92] = [0, lpPage < pages - 1 ? 3 : 1];
+    f[93] = [0, gi > 0 ? 45 : 1]; f[94] = [0, gi < S.groups.length - 1 ? 45 : 1];
+    f[95] = [0, 9]; f[96] = [0, 5]; f[97] = [0, 13]; f[98] = [0, 53]; f[19] = [0, 9]; f[99] = [0, 3];
+    this.SCENE.forEach((n, i) => { if (S.groups[i]) f[n] = [0, this.groupLed(S.groups[i])]; });
+    // buttons the user bound by hand win over the positions above
+    const mine = k => { const p = Trig.parts(k); return !p.kb && this.input && p.port === (this.input.name || this.input.id) ? p.num : 0; };
+    for (const t of S.tiles) for (const k of t.trig || []) { const n = mine(k); if (n) f[n] = this.led(t); }
+    for (const g of S.groups) for (const k of g.trig || []) { const n = mine(k); if (n) f[n] = [0, this.groupLed(g)]; }
+    return f;
   },
-  paintBound(t, flash) {
-    if (!this.connected) return; const [st, v] = this.ledFor(t, flash);
-    Trig.lpNotes(t).forEach(({ cc, n }) => { if (cc) this.send([0xB0, n, v]); else { this.send([0x90, n, 0]); this.send([st, n, v]); } });
-  },
-  paintAll() {
+  render() { if (!this.connected || this.timer) return; this.timer = setTimeout(() => { this.timer = 0; this.flush(); }, 15); },
+  flush() {
     if (!this.connected) return;
-    const { list, pages } = this.pageTiles();
-    for (let i = 0; i < 56; i++) { const n = this.note(i); const t = list[i]; this.send([0x90, n, 0]); if (t) { const [st, v] = this.ledFor(t); this.send([st, n, v]); } }
-    const pins = pinnedSfx(); for (let j = 0; j < 8; j++) { const n = 11 + j; const t = pins[j]; this.send([0x90, n, 0]); if (t) { const [st, v] = this.ledFor(t); this.send([st, n, v]); } }
-    // top row: 91↑ 92↓ 93← 94→ 95 fade 96 stop 97 restart 98 random
-    this.send([0xB0, 91, lpPage > 0 ? 3 : 1]); this.send([0xB0, 92, lpPage < pages - 1 ? 3 : 1]);
-    const gi = S.groups.indexOf(curGroup());
-    this.send([0xB0, 93, gi > 0 ? 45 : 1]); this.send([0xB0, 94, gi < S.groups.length - 1 ? 45 : 1]);
-    this.send([0xB0, 95, 9]); this.send([0xB0, 96, 5]); this.send([0xB0, 97, 13]); this.send([0xB0, 98, 53]);
-    // right column: random per group
-    this.SCENE.forEach((cc, i) => {
-      const g = S.groups[i]; if (!g) { this.send([0xB0, cc, 0]); return; }
-      const music = tilesOf(g.id).filter(isMusic); const left = music.filter(t => !t.played).length;
-      const col = !music.length ? 1 : (g === curGroup() ? (left ? 21 : 9) : (left ? 23 : 11));
-      this.send([0xB0, cc, col]);
-    });
-    this.send([0xB0, 19, 5]);
-    this.send([0xB0, 99, 21]); // logo
-    S.tiles.forEach(t => { if (t.trig && t.trig.length) this.paintBound(t); });
+    const f = this.frame(), changed = [];
+    for (let i = 11; i <= 99; i++) {
+      if (i % 10 === 0) continue;
+      const want = f[i] || [0, 0], had = this.last[i];
+      if (!had || had[0] !== want[0] || had[1] !== want[1]) { changed.push([i, want]); this.last[i] = want; }
+    }
+    if (!changed.length) return;
+    if (this.access && this.access.sysexEnabled) {   // one message lights any LED, pad or button
+      const msg = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x03];
+      changed.forEach(([i, w]) => msg.push(w[0], i, w[1])); msg.push(0xF7); this.send(msg);
+    } else {
+      changed.forEach(([i, w]) => { const btn = i > 90 || i % 10 === 9; if (w[0] === 2) this.send([btn ? 0xB0 : 0x90, i, 0]); this.send([(btn ? 0xB0 : 0x90) + w[0], i, w[1]]); });
+    }
   },
   onMsg(d) {
-    const [st, a, b] = d; const type = st & 0xF0;
-    if (type === 0x90 && b > 0) {
-      const t = (a >= 11 && a <= 18) ? pinnedSfx()[a - 11] : this.pageTiles().list[this.index(a)];
-      if (t) { if (editMode) openTileEditor(t); else Engine.trigger(t); }
-    } else if (type === 0xB0 && b > 0) {
+    const type = d[0] & 0xF0, a = d[1]; if (!d[2]) return;
+    if (type === 0x90) {
+      const t = (a >= 11 && a <= 18) ? horns()[a - 11] : this.page().list[this.index(a)];
+      if (!t) return;
+      if (editMode) openTileEditor(t); else Engine.trigger(t);
+    } else if (type === 0xB0) {
       const gi = S.groups.indexOf(curGroup());
-      if (a === 91) { if (lpPage > 0) { lpPage--; this.paintAll(); } }
-      else if (a === 92) { if (lpPage < this.pageTiles().pages - 1) { lpPage++; this.paintAll(); } }
+      if (a === 91) { if (lpPage > 0) { lpPage--; UI.build(); } }
+      else if (a === 92) { if (lpPage < this.page().pages - 1) { lpPage++; UI.build(); } }
       else if (a === 93) { if (gi > 0) selectGroup(S.groups[gi - 1].id); }
       else if (a === 94) { if (gi < S.groups.length - 1) selectGroup(S.groups[gi + 1].id); }
       else if (a === 95 || a === 19) Engine.fadeOut();
@@ -643,528 +923,810 @@ const LP = {
   },
 };
 
-/* ---------------- UI rendering ---------------- */
+/* ---------------- screen ---------------- */
 function renderStatus() {
-  const sp = $('#dotSp'); sp.className = 'dot ' + (SP.status === 'ready' ? 'ok' : SP.status === 'error' ? 'bad' : '');
-  const lp = $('#dotLp'); lp.className = 'dot ' + (LP.connected ? 'ok' : '');
+  let sp = 'ok', msg = '';
+  if (!navigator.onLine) { sp = 'bad'; msg = 'Offline'; }
+  else if (!SP.loggedIn) { sp = 'warn'; msg = 'Koppla Spotify'; }
+  else if (SP.status === 'error') { sp = 'bad'; msg = 'Spotify-fel'; }
+  else if (SP.status !== 'ready') { sp = 'warn'; msg = 'Spotify startar'; }
+  const el = $('#status');
+  el.innerHTML = `<span class="${sp}">${ic('note')}</span><span class="${LP.connected ? 'ok' : ''}">${ic('grid')}</span>` + (msg ? `<span class="msg ${sp}">${msg}</span>` : '');
+  el.setAttribute('aria-label', `Spotify: ${msg || 'ansluten'}. Launchpad: ${LP.connected ? 'ansluten' : 'inte ansluten'}.`);
 }
-function renderTabs() {
-  const nav = $('#tabs'); const cg = curGroup();
-  nav.innerHTML = S.groups.map((g, i) => {
-    const music = tilesOf(g.id).filter(isMusic); const left = music.filter(t => !t.played).length;
-    return `<button data-g="${g.id}" class="${g === cg ? 'cur' : ''}">${esc(g.name)}<small>${i < 7 ? 'Pad ' + (i + 1) + ' · ' : ''}${left}/${music.length} kvar</small></button>`;
-  }).join('');
+function padLabel(t) {
+  const i = LP.list().findIndex(x => x.id === t.id); if (i < 0) return '';
+  const w = i % 56; return (i >= 56 ? 's' + (Math.floor(i / 56) + 1) + ' ' : '') + (Math.floor(w / 8) + 1) + '·' + (w % 8 + 1);
 }
-function tileHtml(t, i) {
-  const playing = Engine.cur && Engine.cur.tile.id === t.id;
-  const cls = ['tile']; if (t.played && isMusic(t)) cls.push('played'); if (playing) cls.push('playing'); if (Engine.sfx.has(t.id)) cls.push('flash');
-  const badge = t.kind === 'spotify' ? '<span class="badge">♫</span>' : '<span class="badge">' + (t.overlay ? '📣' : '♪') + '</span>';
-  return `<div class="${cls.join(' ')}" data-t="${t.id}" style="--tc:${COLORS[t.color ?? 0] || COLORS[0]}">
-    <span class="lp">${t.trig && t.trig.length ? esc(Trig.label(t.trig[0])) : lpLabel(t)}</span>
-    <div class="t">${esc(t.title)}</div><div><div class="a">${esc(t.alt || t.artist || '')}</div><div class="d">${fmt(playLen(t))}</div></div>${badge}<div class="prog"></div></div>`;
+function tileHtml(t, searching) {
+  const p = pad(t);
+  const sub = searching ? (group(t.groupId) || {}).name : (t.alt || t.artist);
+  const flags = (isMusic(t) ? '' : ic('sfx')) + (t.next ? ic('next') : '') + (t.loop ? ic('loop') : '');
+  const key = t.trig && t.trig.length ? Trig.short(t.trig[0]) : (LP.connected && !searching ? padLabel(t) : '');
+  return `<button class="tile" data-t="${t.id}" style="--pad:${p.bg};--ink:${p.ink}"><span class="tile-title">${esc(t.title)}</span>${sub ? `<span class="tile-sub">${esc(sub)}</span>` : ''}` +
+    `<span class="tile-foot"><span class="tile-time">${fmt(playLen(t))}</span><span class="tile-flags">${flags}</span><span class="tile-key">${key}</span></span><i class="tile-drain"></i></button>`;
 }
-function lpLabel(t) {
-  const pj = pinnedSfx().findIndex(x => x.id === t.id); if (pj >= 0) return 'pad ' + (pj + 1) + '↓';
-  const i = LP.groupList().findIndex(x => x.id === t.id); if (i < 0) return '';
-  const pg = Math.floor(i / 56), w = i % 56; return (pg ? 'S' + (pg + 1) + ' ' : '') + (Math.floor(w / 8) + 1) + '·' + (w % 8 + 1);
+function emptyHtml(searching) {
+  if (searching) return `<div class="empty"><p>${searchQ.trim() ? `Ingen låt matchar ”${esc(searchQ.trim())}”.` : 'Skriv en titel eller artist för att söka i alla grupper.'}</p></div>`;
+  if (S.tiles.length) return `<div class="empty"><h2>${esc(curGroup().name)} är tom</h2><p>Lägg till låtar från Spotify eller ljudfiler från telefonen.</p><p><button class="btn primary" data-act="add">Lägg till</button></p></div>`;
+  return `<div class="empty"><h2>Kom igång</h2><p>Tre steg, sedan är du redo för match.</p><ol>
+    <li class="${SP.loggedIn ? 'done' : ''}"><b>Koppla Spotify</b><span>Krävs för att spela låtar. Görs en gång per enhet.</span>${SP.loggedIn ? '' : '<button class="btn primary" data-act="spotify">Koppla Spotify</button>'}</li>
+    <li><b>Hämta dina låtar</b><span>Läs in en backup från Sports Audio DJ, eller lägg till låtar själv.</span><button class="btn" data-act="backup">Läs in backup</button> <button class="btn" data-act="add">Lägg till låtar</button></li>
+    <li class="${LP.connected ? 'done' : ''}"><b>Anslut Launchpad</b><span>Valfritt. Koppla in den med USB så tänds knapparna.</span>${LP.connected ? '' : '<button class="btn" data-act="launchpad">Anslut</button>'}</li></ol></div>`;
 }
-function renderSfx() {
-  const pins = pinnedSfx();
-  $('#sfx').innerHTML = pins.map(t => `<button data-s="${t.id}" class="${Engine.sfx.has(t.id) ? 'on' : ''}" style="--tc:${COLORS[t.color ?? 0]}">${esc(t.alt || t.title)}</button>`).join('');
+const UI = {
+  // Rebuild everything. Only for structural changes; playback changes go through refresh().
+  build() {
+    const g = curGroup(), searching = searchQ !== null;
+    document.body.classList.toggle('editing', editMode);
+    document.body.classList.toggle('moving', !!moving);
+    $('#title').textContent = g.name;
+    let list;
+    if (searching) { const q = searchQ.trim().toLowerCase(); list = q ? S.tiles.filter(t => isMusic(t) && [t.title, t.alt, t.artist].join(' ').toLowerCase().includes(q)).slice(0, 90) : []; }
+    else list = gridTiles(g.id);
+    let html = list.map(t => tileHtml(t, searching)).join('');
+    if (moving && !searching) html += '<button class="tile slot" data-end="1">Lägg sist</button>';
+    else if (!list.length) html = emptyHtml(searching);
+    $('#grid').innerHTML = html;
+    $('#horns').innerHTML = horns().map((t, i) => { const p = pad(t); return `<button class="horn" data-t="${t.id}" style="--pad:${p.bg};--ink:${p.ink}">${LP.connected ? `<small>${i + 1}</small>` : ''}<span>${esc(t.alt || t.title)}</span></button>`; }).join('');
+    $('#tabs').innerHTML = S.groups.map(x => `<button class="tab" role="tab" data-g="${x.id}" aria-selected="${x === g}"><span class="tab-name">${esc(x.name)}</span><span class="tab-n"></span></button>`).join('');
+    const sel = $('#tabs [aria-selected=true]'); if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    this.refresh();
+  },
+  // Cheap in-place update: never replaces an element, so a tap in progress is never lost.
+  refresh() {
+    const c = Engine.cur;
+    for (const el of $$('#grid .tile[data-t]')) {
+      const t = tile(el.dataset.t); if (!t) continue;
+      const live = !!c && c.tile.id === t.id;
+      el.classList.toggle('is-live', live);
+      el.classList.toggle('is-loading', live && c.phase === 'loading');
+      el.classList.toggle('is-fading', live && (c.phase === 'fading' || c.phase === 'ending'));
+      el.classList.toggle('is-played', !live && !!t.played && isMusic(t));
+      el.classList.toggle('is-sounding', Engine.sfx.has(t.id));
+      el.classList.toggle('is-lifted', moving === t.id);
+      if (!live) { const tm = $('.tile-time', el), s = fmt(playLen(t)); if (tm.textContent !== s) tm.textContent = s; $('.tile-drain', el).style.transform = ''; }
+    }
+    for (const el of $$('#horns .horn')) { el.classList.toggle('is-sounding', Engine.sfx.has(el.dataset.t)); el.classList.toggle('is-lifted', moving === el.dataset.t); }
+    for (const el of $$('#tabs .tab')) {
+      const music = tilesOf(el.dataset.g).filter(isMusic);
+      $('.tab-n', el).textContent = music.length ? music.filter(t => !t.played).length + ' kvar' : 'tom';
+    }
+    const nx = c && c.tile.next ? Engine.nextAfter(c.tile) : null;
+    $('#transport').classList.toggle('idle', !c);
+    $('#tpTitle').textContent = c ? c.tile.title : 'Inget spelas';
+    $('#tpSub').textContent = !c ? '' : nx ? 'Sedan: ' + nx.title : c.loopsLeft ? 'Loopar' : (c.tile.alt || c.tile.artist || '');
+    $('#btnFade').disabled = !c; $('#btnRestart').disabled = !c;
+    $('#btnFade').textContent = c && (c.phase === 'fading' || c.phase === 'ending') ? 'Stopp' : 'Tona ut';
+    $('#btnRandom').setAttribute('aria-label', 'Slumpa en ospelad låt i ' + curGroup().name);
+    if (sheetHook) sheetHook();
+    LP.render();
+    this.clock();
+  },
+  clock() {
+    const c = Engine.cur;
+    if (!c) { if (!this.idle) { this.idle = true; $('#tpClock').textContent = '0:00'; $('#tpBar').style.transform = ''; } return; }
+    this.idle = false;
+    const pos = Engine.position(), st = c.tile.start || 0, en = Engine.endOf(c);
+    const left = fmt(Math.ceil(Math.max(0, en - pos) - 0.05));
+    const k = en > st ? clamp((pos - st) / (en - st), 0, 1) : 0;
+    $('#tpClock').textContent = left; $('#tpBar').style.transform = `scaleX(${k})`;
+    const el = $('#grid .tile.is-live');
+    if (el) { $('.tile-time', el).textContent = left; $('.tile-drain', el).style.transform = `scaleX(${k})`; }
+  },
+};
+function selectGroup(id) { S.curGroup = id; lpPage = 0; save(); $('#main').scrollTop = 0; if (searchQ !== null) closeSearch(); else UI.build(); }
+function applyTileSize() { const s = TILE_PX[S.settings.tileSize] ? S.settings.tileSize : 'm'; document.documentElement.style.setProperty('--tile', TILE_PX[s] + 'px'); document.body.classList.remove('size-s', 'size-m', 'size-l'); document.body.classList.add('size-' + s); }
+
+/* ---------------- search ---------------- */
+function openSearch() { searchQ = ''; $('#title').hidden = true; $('#status').hidden = true; const q = $('#q'); q.hidden = false; q.value = ''; $('#btnSearch').setAttribute('aria-pressed', 'true'); UI.build(); q.focus(); }
+function closeSearch() { searchQ = null; $('#q').hidden = true; $('#q').blur(); $('#title').hidden = false; $('#status').hidden = false; $('#btnSearch').setAttribute('aria-pressed', 'false'); UI.build(); }
+
+/* ---------------- moving a tile: pick it up, then tap where it should go ---------------- */
+function startMove(t) {
+  moving = t.id; closeSheet();
+  const b = $('#banner'); b.hidden = false; $('span', b).textContent = `Flytta ”${t.title}”: tryck på rutan den ska ligga före.`; $('button', b).onclick = endMove;
+  UI.build();
 }
-function renderGrid() {
-  const g = curGroup(); $('#title').textContent = g ? g.name : 'Matchljud';
-  const list = g ? tilesOf(g.id) : [];
-  $('#main').classList.toggle('editing', editMode);
-  $('#grid').innerHTML = list.length ? list.map(tileHtml).join('') : `<div class="empty" style="grid-column:1/-1">Tom grupp.<br><br>Tryck <b>＋</b> för att lägga till låtar, eller ☰ → <b>Importera backup</b> för att läsa in din Sports Audio DJ-fil.</div>`;
+function placeTile(target) {
+  const t = tile(moving); if (!t || (target && target.id === t.id)) return endMove();
+  const from = t.groupId, gid = target ? target.groupId : curGroup().id;
+  const list = tilesOf(gid).filter(x => x.id !== t.id);
+  const i = target ? list.findIndex(x => x.id === target.id) : -1;
+  list.splice(i < 0 ? list.length : i, 0, t); t.groupId = gid; list.forEach((x, k) => { x.order = k; });
+  if (from !== gid) renumber(from);
+  save(); endMove();
 }
-function paintTile(id, flash) {
-  const el = document.querySelector(`.tile[data-t="${CSS.escape(id)}"]`); if (!el) return; const t = tile(id); if (!t) return;
-  const g = curGroup(); const i = tilesOf(g.id).findIndex(x => x.id === id);
-  const tmp = document.createElement('div'); tmp.innerHTML = tileHtml(t, i); const n = tmp.firstElementChild; if (flash) n.classList.add('flash');
-  el.replaceWith(n);
+function endMove() { moving = null; $('#banner').hidden = true; UI.build(); }
+
+// Destructive changes are applied at once and can be taken back from the toast.
+function withUndo(msg, change) {
+  const snap = JSON.stringify({ groups: S.groups, tiles: S.tiles, cur: S.curGroup });
+  change(); if (!group(S.curGroup)) S.curGroup = S.groups[0].id;
+  save(); UI.build();
+  toast(msg, { action: 'Ångra', onAction: () => { const s = JSON.parse(snap); S.groups = s.groups; S.tiles = s.tiles; S.curGroup = s.cur; save(); if (sheetOpen()) closeSheet(); UI.build(); } });
 }
-function renderAllTiles() { renderGrid(); renderTabs(); renderSfx(); }
-function renderNow() {
-  const c = Engine.cur;
-  $('#npTitle').textContent = c ? c.tile.title + (c.tile.artist ? ' — ' + c.tile.artist : '') : '—';
-  renderNowTime();
-}
-function renderNowTime() {
-  const c = Engine.cur;
-  if (!c) { $('#npTime').textContent = 'Inget spelas'; $('#npBar').style.width = '0'; return; }
-  const pos = Engine.position(); const st = c.tile.start || 0; const en = c.tile.stop || c.dur || c.tile.duration || 0;
-  const pct = en > st ? Math.min(100, Math.max(0, (pos - st) / (en - st) * 100)) : 0;
-  $('#npTime').textContent = fmt(pos - st) + ' / ' + fmt(en - st) + '   (−' + fmt(en - pos) + ')' + (c.tile.next ? '  ⇢ nästa' : '');
-  $('#npBar').style.width = pct + '%';
-  const el = document.querySelector(`.tile[data-t="${CSS.escape(c.tile.id)}"] .prog`); if (el) el.style.width = pct + '%';
-}
-function selectGroup(id) { S.curGroup = id; lpPage = 0; save(); renderAllTiles(); LP.paintAll(); $('#main').scrollTop = 0; }
 
 /* ---------------- interactions ---------------- */
-$('#tabs').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (b) selectGroup(b.dataset.g); });
-// hold ~0.5 s on a tile = open its settings (like Sports Audio DJ); short tap = play
-let lpTimer = null, lpFired = false, lpXY = null;
-function holdStart(e, id) { lpFired = false; lpXY = [e.clientX, e.clientY]; clearTimeout(lpTimer); lpTimer = setTimeout(() => { lpFired = true; if (navigator.vibrate) navigator.vibrate(15); openTileEditor(tile(id)); }, 500); }
-function holdCancel() { clearTimeout(lpTimer); }
-['#grid', '#sfx'].forEach(sel => {
-  const root = $(sel);
-  root.addEventListener('pointerdown', e => { const el = e.target.closest('[data-t],[data-s]'); if (el) holdStart(e, el.dataset.t || el.dataset.s); });
-  root.addEventListener('pointermove', e => { if (lpXY && Math.hypot(e.clientX - lpXY[0], e.clientY - lpXY[1]) > 12) holdCancel(); });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => root.addEventListener(ev, holdCancel));
+// Holding a tile for half a second opens its settings; a short tap plays it.
+const hold = {
+  timer: 0, fired: false, x: 0, y: 0,
+  start(e, id) {
+    this.fired = false; this.x = e.clientX; this.y = e.clientY; clearTimeout(this.timer);
+    this.timer = setTimeout(() => { this.fired = true; if (navigator.vibrate) navigator.vibrate(12); openTileEditor(tile(id)); }, 500);
+  },
+  move(e) { if (Math.hypot(e.clientX - this.x, e.clientY - this.y) > 10) this.cancel(); },
+  cancel() { clearTimeout(this.timer); },
+};
+for (const root of [$('#grid'), $('#horns')]) {
+  root.addEventListener('pointermove', e => hold.move(e));
+  for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) root.addEventListener(ev, () => hold.cancel());
   root.addEventListener('contextmenu', e => e.preventDefault());
-  root.addEventListener('scroll', holdCancel, { passive: true });
-});
-$('#main').addEventListener('scroll', holdCancel, { passive: true });
+}
+$('#main').addEventListener('scroll', () => hold.cancel(), { passive: true });
+$('#grid').addEventListener('pointerdown', e => { hold.fired = false; const el = e.target.closest('.tile[data-t]'); if (el && !moving && !editMode) hold.start(e, el.dataset.t); });
 $('#grid').addEventListener('click', e => {
-  if (lpFired) { lpFired = false; return; }
-  const el = e.target.closest('.tile'); if (!el) return; const t = tile(el.dataset.t); if (!t) return;
+  if (hold.fired) { hold.fired = false; return; }
+  const act = e.target.closest('[data-act]');
+  if (act) return act.dataset.act === 'add' ? openAdd() : openMenu(act.dataset.act);
+  const el = e.target.closest('.tile'); if (!el) return;
+  if (moving) return placeTile(el.dataset.end ? null : tile(el.dataset.t));
+  const t = tile(el.dataset.t); if (!t) return;
   if (editMode) openTileEditor(t); else Engine.trigger(t);
 });
-$('#sfx').addEventListener('click', e => { if (lpFired) { lpFired = false; return; } const b = e.target.closest('[data-s]'); if (!b) return; const t = tile(b.dataset.s); if (!t) return; if (editMode) openTileEditor(t); else Engine.trigger(t); });
-$('#btnEdit').onclick = () => { editMode = !editMode; $('#btnEdit').classList.toggle('on', editMode); renderGrid(); toast(editMode ? 'Redigeringsläge: tryck på en ruta för att ändra (eller håll inne en ruta när som helst)' : 'Spelläge'); };
-$('#btnAdd').onclick = () => openAdd();
-$('#btnMenu').onclick = () => openSettings();
-$('#npFade').onclick = () => Engine.fadeOut();
-$('#npRestart').onclick = () => Engine.restart();
-$('#npRandom').onclick = () => Engine.random(curGroup().id);
-$('#sheetBg').addEventListener('click', e => { if (e.target.id === 'sheetBg') closeSheet(); });
-document.addEventListener('keydown', e => {
-  if (e.repeat || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  if (Trig.handle('k|' + e.code)) { e.preventDefault(); return; }
-  if (e.key === ' ') { e.preventDefault(); Engine.fadeOut(); }
+// Horns fire the moment the finger lands, like a real pad.
+let hornDown = false;
+function hornTap(t) { if (moving) placeTile(t); else if (editMode) openTileEditor(t); else Engine.trigger(t); }
+$('#horns').addEventListener('pointerdown', e => {
+  hold.fired = false;
+  const el = e.target.closest('.horn'); const t = el && tile(el.dataset.t); if (!t) return;
+  if (soundLocked() && !moving && !editMode) { hornDown = false; return; }
+  hornDown = true; hornTap(t);
+  if (!moving && !editMode) hold.start(e, t.id);
 });
+$('#horns').addEventListener('click', e => {
+  if (hornDown) { hornDown = false; return; }   // already handled on touch-down; this path is for keyboards
+  const el = e.target.closest('.horn'); const t = el && tile(el.dataset.t); if (t) hornTap(t);
+});
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) selectGroup(b.dataset.g); });
+$('#btnMenu').onclick = () => openMenu();
+$('#status').onclick = () => openMenu(!SP.loggedIn || SP.status === 'error' ? 'spotify' : 'root');
+$('#btnAdd').onclick = () => openAdd();
+$('#btnSearch').onclick = () => (searchQ === null ? openSearch() : closeSearch());
+$('#q').oninput = e => { searchQ = e.target.value; UI.build(); };
+$('#q').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+$('#btnEdit').onclick = () => {
+  editMode = !editMode; $('#btnEdit').setAttribute('aria-pressed', String(editMode)); UI.build();
+  toast(editMode ? 'Redigeringsläge: tryck på en ruta för att ändra den.' : 'Spelläge.');
+};
+$('#btnFade').onclick = () => Engine.fadeOut();
+$('#btnRestart').onclick = () => Engine.restart();
+$('#btnRandom').onclick = () => Engine.random(curGroup().id);
+$('#scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closeSheet(); });
+$('#shClose').onclick = () => closeSheet();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (sheetOpen()) closeSheet(); else if (moving) endMove(); else if (searchQ !== null) closeSearch(); return; }
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  SP.activate(); AudioL.ensure();
+  if (Trig.handle('k|' + e.code)) return e.preventDefault();
+  if (e.code === 'Space' && !sheetOpen()) { e.preventDefault(); Engine.fadeOut(); }
+});
+window.addEventListener('online', renderStatus); window.addEventListener('offline', renderStatus);
 
-function openSheet(html, keepScroll) { const y = $('#sheet').scrollTop; const wasOpen = $('#sheetBg').classList.contains('open'); $('#sheet').innerHTML = html; $('#sheetBg').classList.add('open'); $('#sheet').scrollTop = (keepScroll && wasOpen) ? y : 0; }
-function closeSheet() { $('#sheetBg').classList.remove('open'); $('#sheet').innerHTML = ''; }
+/* ---------------- sheets ---------------- */
+function openSheet(title, html, o = {}) {
+  const body = $('#shBody'), y = body.scrollTop, keep = o.keep && sheetOpen();
+  $('#shTitle').textContent = title;
+  $('#shBack').hidden = !o.back; $('#shBack').onclick = o.back || null;
+  body.innerHTML = html; $('#scrim').classList.add('open'); body.scrollTop = keep ? y : 0;
+}
+function closeSheet() { Trig.learn = null; sheetHook = null; $('#scrim').classList.remove('open'); $('#shBody').innerHTML = ''; }
+const swHtml = (id, on) => `<input type="checkbox" class="sw" id="${id}" ${on ? 'checked' : ''}>`;
+const lineHtml = (text, id, on) => `<label class="line"><span>${text}</span>${swHtml(id, on)}</label>`;
+const rangeHtml = (id, label, show, val, min, max, step) => `<div class="field"><label for="${id}">${label} <b id="${id}V">${show}</b></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
+const trigListHtml = x => (x.trig || []).map((k, i) => `<div class="li"><div class="m"><b>${esc(Trig.label(k).replace(/^./, m => m.toUpperCase()))}</b></div><button class="iconbtn" data-untrig="${i}" aria-label="Ta bort kopplingen">${ic('close')}</button></div>`).join('');
 
 /* ---------- tile editor ---------- */
-function openTileEditor(t) {
+function openTileEditor(t, keep) {
   if (!t) return;
-  const opts = S.groups.map(g => `<option value="${g.id}" ${g.id === t.groupId ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
-  const same = openTileEditor.last === t.id && $('#sheetBg').classList.contains('open'); openTileEditor.last = t.id;
-  openSheet(`
-  <h2><span>Redigera</span><button class="ghost" id="eClose">✕</button></h2>
-  <div class="hint">${t.kind === 'spotify' ? 'Spotify' : 'Lokal ljudfil'} · ${esc(t.artist || '')} · total ${fmt(t.duration)}</div>
-  <label>Titel</label><input id="eTitle" value="${esc(t.title)}">
-  <label>Undertext (valfri)</label><input id="eAlt" value="${esc(t.alt || '')}" placeholder="${esc(t.artist || '')}">
-  <label>Färg</label><div class="swatches">${COLORS.map((c, i) => `<button class="sw ${i === (t.color ?? 0) ? 'sel' : ''}" data-c="${i}" style="background:${c}" title="${COLOR_NAMES[i]}"></button>`).join('')}</div>
-  <h3>Start och stopp</h3>
-  <div class="kv"><span>Start <span class="time" id="eStartV">${fmt1(t.start || 0)}</span></span><span class="row tight"><button data-adj="start,-1">−1</button><button data-adj="start,-0.1">−.1</button><button data-adj="start,0.1">+.1</button><button data-adj="start,1">+1</button></span></div>
-  <input type="range" id="eStart" min="0" max="${Math.ceil(t.duration || 600)}" step="0.1" value="${t.start || 0}">
-  <div class="row" style="margin-top:8px"><button id="ePrev">▶ Provlyssna från start</button><button id="eSetStart">Start = nu</button></div>
-  <div class="kv" style="margin-top:10px"><span>Stopp <span class="time" id="eStopV">${t.stop ? fmt1(t.stop) : 'slutet'}</span></span><span class="row tight"><button data-adj="stop,-1">−1</button><button data-adj="stop,-0.1">−.1</button><button data-adj="stop,0.1">+.1</button><button data-adj="stop,1">+1</button></span></div>
-  <input type="range" id="eStop" min="0" max="${Math.ceil(t.duration || 600)}" step="0.1" value="${t.stop || t.duration || 0}">
-  <div class="row" style="margin-top:8px"><button id="ePrevEnd">▶ Lyssna på slutet</button><button id="eSetStop">Stopp = nu</button><button id="eNoStop">Till slutet</button></div>
-  <h3>Uppspelning</h3>
-  <label>Loopa</label><select id="eLoop">${[[0,'Ingen'],[1,'1 gång'],[2,'2 gånger'],[3,'3 gånger'],[5,'5 gånger'],[-1,'Tills jag trycker']].map(([v, n]) => `<option value="${v}" ${(t.loop || 0) === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
-  <div class="kv"><span>Starta nästa ruta när den är klar</span><input type="checkbox" id="eNext" ${t.next ? 'checked' : ''}></div>
-  ${t.kind === 'local' ? `<div class="kv"><span>Ljudeffekt (spelas ovanpå musik, kan tryckas flera gånger)</span><input type="checkbox" id="eOver" ${t.overlay ? 'checked' : ''}></div>` : ''}
-  <label>Volym <b id="eVolV">${t.volume >= 0 ? t.volume + '%' : 'standard'}</b></label><input type="range" id="eVol" min="-5" max="100" step="5" value="${t.volume >= 0 ? t.volume : -5}">
-  <label>Intoning <b id="eFiV">${t.fadeIn >= 0 ? t.fadeIn + ' s' : 'standard'}</b></label><input type="range" id="eFi" min="-1" max="10" step="0.5" value="${t.fadeIn >= 0 ? t.fadeIn : -1}">
-  <label>Uttoning <b id="eFoV">${t.fadeOut >= 0 ? t.fadeOut + ' s' : 'standard'}</b></label><input type="range" id="eFo" min="-1" max="10" step="0.5" value="${t.fadeOut >= 0 ? t.fadeOut : -1}">
-  <h3>Dropouts</h3>
-  <p class="hint">Musiken tystnar en stund så publiken sjunger med (tänk Sweet Caroline). Spela låten och tryck "Dropout här" i rätt ögonblick.</p>
-  <div class="list" id="eDrops">${(t.drops || []).map((d, i) => `<div class="li"><div class="m"><b>${fmt1(d.at)}</b><small>tyst i ${d.len.toFixed(1)} s</small></div><button data-dl="${i},-0.5">−</button><button data-dl="${i},0.5">＋</button><button data-dd="${i}">✕</button></div>`).join('') || '<div class="hint">Inga dropouts.</div>'}</div>
-  <button style="width:100%;margin-top:8px" id="eDropAdd">＋ Dropout här (2 s)</button>
-  <h3>Trigger</h3>
-  <p class="hint">Koppla rutan till valfri knapp: en pad på Launchpad, en annan MIDI-pryl eller en tangent på ett Bluetooth-tangentbord. Fungerar i alla grupper.</p>
-  <div class="list">${(t.trig || []).map((k, i) => `<div class="li"><div class="m"><b>${esc(Trig.label(k))}</b></div><button data-tr="${i}">✕</button></div>`).join('') || '<div class="hint">Ingen egen trigger (spelas via sin plats på Launchpad).</div>'}</div>
-  <button style="width:100%;margin-top:8px" id="eTrig">${Trig.learn === t ? 'Tryck på en knapp nu… (avbryt)' : '＋ Tilldela knapp'}</button>
-  <h3>Plats</h3>
-  <label>Grupp</label><select id="eGroup">${opts}</select>
-  <div class="row" style="margin-top:8px"><button data-mv="-8">⇈ Rad upp</button><button data-mv="-1">← Flytta</button><button data-mv="1">Flytta →</button><button data-mv="8">⇊ Rad ner</button></div>
-  <div class="row" style="margin-top:8px"><button data-mv="first">Först</button><button data-mv="last">Sist</button><button id="eDup">Duplicera</button></div>
-  <div class="row" style="margin-top:22px"><button class="danger" id="eDel">Ta bort</button><button class="primary" id="eDone">Klar</button></div>`, same);
-  const upd = () => { save(); renderAllTiles(); LP.paintAll(); };
-  $('#eTrig').onclick = e => { if (Trig.learn === t) { Trig.learn = null; e.target.textContent = '＋ Tilldela knapp'; } else { Trig.learn = t; e.target.textContent = 'Tryck på en knapp nu… (avbryt)'; e.target.blur(); toast('Tryck på en pad, MIDI-knapp eller tangent'); } };
-  document.querySelectorAll('[data-tr]').forEach(b => b.onclick = () => { const k = t.trig[+b.dataset.tr]; t.trig.splice(+b.dataset.tr, 1); upd(); if (LP.connected) LP.paintAll(); openTileEditor(t); });
-  $('#eClose').onclick = $('#eDone').onclick = () => { Trig.learn = null; Engine.previewStop && Engine.previewStop(); closeSheet(); };
-  $('#eTitle').oninput = e => { t.title = e.target.value; upd(); };
-  $('#eAlt').oninput = e => { t.alt = e.target.value; upd(); };
-  document.querySelectorAll('.sw').forEach(b => b.onclick = () => { t.color = +b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('sel', x === b)); upd(); });
-  const showSS = () => { $('#eStartV').textContent = fmt1(t.start || 0); $('#eStopV').textContent = t.stop ? fmt1(t.stop) : 'slutet'; $('#eStart').value = t.start || 0; $('#eStop').value = t.stop || t.duration || 0; };
-  const clamp = () => { t.start = Math.max(0, Math.round((t.start || 0) * 10) / 10); if (t.stop != null) { t.stop = Math.round(t.stop * 10) / 10; if (t.duration && t.stop >= t.duration - 0.05) t.stop = null; else if (t.stop <= t.start) t.stop = t.start + 0.5; } };
-  $('#eStart').oninput = e => { t.start = +e.target.value; clamp(); showSS(); upd(); };
-  $('#eStop').oninput = e => { t.stop = +e.target.value; clamp(); showSS(); upd(); };
-  document.querySelectorAll('[data-adj]').forEach(b => b.onclick = () => { const [k, d] = b.dataset.adj.split(','); if (k === 'start') t.start = (t.start || 0) + +d; else t.stop = (t.stop || t.duration || 0) + +d; clamp(); showSS(); upd(); });
-  $('#ePrev').onclick = () => { SP.activate(); Engine.playMusic(t, { force: true, cut: true }); };
-  $('#ePrevEnd').onclick = async () => { SP.activate(); const en = t.stop || t.duration || 0; const from = Math.max(t.start || 0, en - 6); await Engine.playMusic(t, { force: true, cut: true }); if (Engine.cur && Engine.cur.tile === t) { if (t.kind === 'spotify') { await SP.seek(from); Engine.cur.startPos = from; Engine.cur.t0 = performance.now(); } } };
-  $('#eSetStart').onclick = () => { if (Engine.cur && Engine.cur.tile === t) { t.start = Engine.position(); clamp(); showSS(); upd(); } else toast('Spela rutan först'); };
-  $('#eSetStop').onclick = () => { if (Engine.cur && Engine.cur.tile === t) { t.stop = Engine.position(); clamp(); showSS(); upd(); } else toast('Spela rutan först'); };
-  $('#eNoStop').onclick = () => { t.stop = null; showSS(); upd(); };
-  $('#eLoop').onchange = e => { t.loop = +e.target.value; if (Engine.cur && Engine.cur.tile === t) Engine.cur.loopsLeft = t.loop; upd(); };
-  $('#eDropAdd').onclick = () => { if (!(Engine.cur && Engine.cur.tile === t)) return toast('Spela rutan först'); (t.drops = t.drops || []).push({ at: Math.round(Engine.position() * 10) / 10, len: 2 }); t.drops.sort((a, b) => a.at - b.at); upd(); openTileEditor(t); };
-  document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => { const [i, d] = b.dataset.dl.split(','); const x = t.drops[+i]; x.len = Math.max(0.5, Math.round((x.len + +d) * 10) / 10); upd(); openTileEditor(t); });
-  document.querySelectorAll('[data-dd]').forEach(b => b.onclick = () => { t.drops.splice(+b.dataset.dd, 1); upd(); openTileEditor(t); });
-  $('#eNext').onchange = e => { t.next = e.target.checked; upd(); };
-  if ($('#eOver')) $('#eOver').onchange = e => { t.overlay = e.target.checked; upd(); };
-  $('#eVol').oninput = e => { const v = +e.target.value; t.volume = v < 0 ? -1 : v; $('#eVolV').textContent = v < 0 ? 'standard' : v + '%'; upd(); };
-  $('#eFi').oninput = e => { const v = +e.target.value; t.fadeIn = v < 0 ? -1 : v; $('#eFiV').textContent = v < 0 ? 'standard' : v + ' s'; upd(); };
-  $('#eFo').oninput = e => { const v = +e.target.value; t.fadeOut = v < 0 ? -1 : v; $('#eFoV').textContent = v < 0 ? 'standard' : v + ' s'; upd(); };
-  $('#eGroup').onchange = e => { const from = t.groupId; t.groupId = e.target.value; t.order = 1e6; renumber(from); renumber(t.groupId); upd(); };
-  document.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => {
-    const list = tilesOf(t.groupId); const i = list.indexOf(t); const mv = b.dataset.mv;
-    let j = mv === 'first' ? 0 : mv === 'last' ? list.length - 1 : Math.max(0, Math.min(list.length - 1, i + +mv));
-    list.splice(i, 1); list.splice(j, 0, t); list.forEach((x, k) => x.order = k); upd();
-  });
-  $('#eDup').onclick = () => { const c = { ...t, id: uid(), order: t.order + 0.5, played: false }; S.tiles.push(c); renumber(t.groupId); upd(); toast('Kopia skapad'); };
-  $('#eDel').onclick = async () => {
-    if (!confirm('Ta bort "' + t.title + '"?')) return;
-    if (Engine.cur && Engine.cur.tile === t) await Engine.stopCurrent(0);
-    S.tiles = S.tiles.filter(x => x !== t); renumber(t.groupId);
-    if (t.kind === 'local' && !S.tiles.some(x => x.soundId === t.soundId)) DB.del('audio', t.soundId);
-    upd(); closeSheet();
+  hold.cancel();
+  const again = () => openTileEditor(t, true);
+  const changed = () => { save(); UI.build(); };
+  const kind = t.kind === 'spotify' ? 'Spotify-låt' : t.overlay ? 'Ljudeffekt' : 'Ljudfil';
+  const max = Math.max(1, Math.ceil(t.duration || 600));
+  const steps = k => [-1, -0.1, 0.1, 1].map(d => `<button class="btn small" data-adj="${k},${d}">${d > 0 ? '+' : '−'}${String(Math.abs(d)).replace('.', ',')}</button>`).join('');
+  const opt = (v, n, cur) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${n}</option>`;
+  const music = isMusic(t);
+  openSheet('Redigera ruta', `
+    <p class="hint">${esc([kind, t.artist, fmt(t.duration) + ' lång'].filter(Boolean).join(', '))}</p>
+    <div class="field"><label for="eTitle">Titel</label><input type="text" id="eTitle" value="${esc(t.title)}"></div>
+    <div class="field"><label for="eAlt">Undertext</label><input type="text" id="eAlt" value="${esc(t.alt || '')}" placeholder="${esc(t.artist || 'Valfri')}"></div>
+    <div class="field"><label>Färg</label><div class="swatches">${PADS.map((p, i) => `<button class="swatch" data-c="${i}" aria-label="${p.name}" aria-pressed="${i === (t.color ?? 0)}" style="--pad:${p.bg};--ink:${p.ink}">${ic('check')}</button>`).join('')}</div></div>
+
+    <h3 class="sec">Klipp</h3>
+    <div class="clip"><b><small>Start</small><span id="eStartV">${fmt1(t.start || 0)}</span></b>${steps('start')}</div>
+    <input type="range" id="eStart" aria-label="Start" min="0" max="${max}" step="0.1" value="${t.start || 0}">
+    <div class="clip"><b><small>Stopp</small><span id="eStopV">${t.stop ? fmt1(t.stop) : 'Slutet'}</span></b>${steps('stop')}</div>
+    <input type="range" id="eStop" aria-label="Stopp" min="0" max="${max}" step="0.1" value="${t.stop || t.duration || max}">
+    <div class="row"><button class="btn" id="ePlay">${ic('play')}Från start</button>${music ? `<button class="btn" id="ePlayEnd">${ic('play')}Sista 6 s</button>` : ''}</div>
+    ${music ? `<div class="row"><button class="btn" id="eSetStart" data-live>Start här</button><button class="btn" id="eSetStop" data-live>Stopp här</button><button class="btn" id="eNoStop" ${t.stop ? '' : 'disabled'}>Till slutet</button></div>
+    <p class="hint">Spela rutan och tryck ”Start här” eller ”Stopp här” i rätt ögonblick.</p>` : ''}
+
+    <h3 class="sec">Uppspelning</h3>
+    ${music ? `<div class="field"><label for="eLoop">Loopa</label><select id="eLoop">${[[0, 'Nej'], [1, '1 gång till'], [2, '2 gånger till'], [3, '3 gånger till'], [5, '5 gånger till'], [-1, 'Tills jag stoppar']].map(([v, n]) => opt(v, n, t.loop || 0)).join('')}</select></div>
+    ${lineHtml('Fortsätt med nästa ruta efteråt', 'eNext', t.next)}` : ''}
+    ${t.kind === 'local' ? lineHtml('Ljudeffekt som spelas ovanpå musiken', 'eOver', t.overlay) : ''}
+    ${rangeHtml('eVol', 'Volym', t.volume >= 0 ? t.volume + ' %' : 'Standard', t.volume >= 0 ? t.volume : -5, -5, 100, 5)}
+    ${music ? rangeHtml('eFi', 'Tona in', t.fadeIn >= 0 ? t.fadeIn + ' s' : 'Standard', t.fadeIn >= 0 ? t.fadeIn : -0.5, -0.5, 10, 0.5) + rangeHtml('eFo', 'Tona ut', t.fadeOut >= 0 ? t.fadeOut + ' s' : 'Standard', t.fadeOut >= 0 ? t.fadeOut : -0.5, -0.5, 10, 0.5) : ''}
+
+    ${music ? `<h3 class="sec">Tystnad för allsång</h3>
+    <p class="hint">Musiken tystnar en stund så publiken kan sjunga med. Spela rutan och tryck på knappen där tystnaden ska börja.</p>
+    <div class="list">${(t.drops || []).map((d, i) => `<div class="li"><div class="m"><b>Vid ${fmt1(d.at)}</b><small>Tyst i ${String(d.len).replace('.', ',')} s</small></div><button class="btn small" data-droplen="${i},-0.5" aria-label="Kortare">−</button><button class="btn small" data-droplen="${i},0.5" aria-label="Längre">+</button><button class="iconbtn" data-dropdel="${i}" aria-label="Ta bort">${ic('close')}</button></div>`).join('')}</div>
+    <div class="row"><button class="btn" id="eDrop" data-live>Tystna här i 2 s</button></div>` : ''}
+
+    <h3 class="sec">Egen knapp</h3>
+    <p class="hint">Koppla rutan till en pad på Launchpad, en annan MIDI-knapp eller en tangent. Den fungerar sedan i alla grupper.</p>
+    <div class="list">${trigListHtml(t)}</div>
+    <div class="row"><button class="btn" id="eTrig">${Trig.learn && Trig.learn.tile === t ? 'Tryck på knappen nu… (avbryt)' : 'Koppla en knapp'}</button></div>
+
+    <h3 class="sec">Plats</h3>
+    <div class="field"><label for="eGroup">Grupp</label><select id="eGroup">${S.groups.map(g => opt(g.id, esc(g.name), t.groupId)).join('')}</select></div>
+    <div class="row"><button class="btn" id="eMove">Flytta rutan…</button><button class="btn" id="eDup">Duplicera</button></div>
+    <div class="row" style="margin-top:28px"><button class="btn danger" id="eDel">${ic('trash')}Ta bort</button><button class="btn primary" id="eDone">Klar</button></div>`, { keep });
+
+  const isLive = () => !!Engine.cur && Engine.cur.tile.id === t.id && Engine.cur.phase === 'playing';
+  sheetHook = () => $$('#shBody [data-live]').forEach(b => { b.disabled = !isLive(); });
+  sheetHook();
+  $('#eDone').onclick = closeSheet;
+  $('#eTitle').oninput = e => { t.title = e.target.value; changed(); };
+  $('#eAlt').oninput = e => { t.alt = e.target.value; changed(); };
+  $$('#shBody .swatch').forEach(b => { b.onclick = () => { t.color = +b.dataset.c; $$('#shBody .swatch').forEach(x => x.setAttribute('aria-pressed', String(x === b))); changed(); }; });
+
+  const show = () => {
+    $('#eStartV').textContent = fmt1(t.start || 0); $('#eStopV').textContent = t.stop ? fmt1(t.stop) : 'Slutet';
+    $('#eStart').value = t.start || 0; $('#eStop').value = t.stop || t.duration || max;
+    if ($('#eNoStop')) $('#eNoStop').disabled = !t.stop;
+  };
+  const tidy = () => {
+    t.start = Math.max(0, Math.round((t.start || 0) * 10) / 10);
+    if (t.duration) t.start = Math.min(t.start, Math.max(0, t.duration - 0.5));
+    if (t.stop != null) {
+      t.stop = Math.round(t.stop * 10) / 10;
+      if (t.duration && t.stop >= t.duration - 0.05) t.stop = null;
+      else if (t.stop <= t.start) t.stop = t.start + 0.5;
+    }
+    show(); changed();
+  };
+  $('#eStart').oninput = e => { t.start = +e.target.value; tidy(); };
+  $('#eStop').oninput = e => { t.stop = +e.target.value; tidy(); };
+  $$('#shBody [data-adj]').forEach(b => { b.onclick = () => { const [k, d] = b.dataset.adj.split(','); if (k === 'start') t.start = (t.start || 0) + +d; else t.stop = (t.stop || t.duration || 0) + +d; tidy(); }; });
+  $('#ePlay').onclick = () => { SP.activate(); AudioL.ensure(); if (music) Engine.play(t, { cut: true, preview: true }); else Engine.playSfx(t); };
+  if ($('#ePlayEnd')) $('#ePlayEnd').onclick = () => { SP.activate(); AudioL.ensure(); const en = t.stop || t.duration || 0; Engine.play(t, { cut: true, preview: true, from: Math.max(t.start || 0, en - 6) }); };
+  if ($('#eSetStart')) {
+    $('#eSetStart').onclick = () => { if (isLive()) { t.start = Engine.position(); tidy(); } };
+    $('#eSetStop').onclick = () => { if (isLive()) { t.stop = Engine.position(); tidy(); } };
+    $('#eNoStop').onclick = () => { t.stop = null; tidy(); };
+  }
+  if ($('#eLoop')) $('#eLoop').onchange = e => { t.loop = +e.target.value; if (Engine.cur && Engine.cur.tile.id === t.id) Engine.cur.loopsLeft = t.loop; changed(); };
+  if ($('#eNext')) $('#eNext').onchange = e => { t.next = e.target.checked; changed(); };
+  if ($('#eOver')) $('#eOver').onchange = e => { t.overlay = e.target.checked; if (t.overlay) { t.next = false; t.loop = 0; } changed(); again(); };
+  const slider = (id, key, unit) => { const el = $('#' + id); if (!el) return; el.oninput = () => { const v = +el.value; t[key] = v < 0 ? -1 : v; $('#' + id + 'V').textContent = v < 0 ? 'Standard' : String(v).replace('.', ',') + unit; if (key === 'volume' && Engine.cur && Engine.cur.tile.id === t.id) { Mix.base = Engine.vol(t); Mix.apply(); } changed(); }; };
+  slider('eVol', 'volume', ' %'); slider('eFi', 'fadeIn', ' s'); slider('eFo', 'fadeOut', ' s');
+  if ($('#eDrop')) $('#eDrop').onclick = () => { if (!isLive()) return; (t.drops = t.drops || []).push({ at: Math.round(Engine.position() * 10) / 10, len: 2 }); t.drops.sort((a, b) => a.at - b.at); changed(); again(); };
+  $$('#shBody [data-droplen]').forEach(b => { b.onclick = () => { const [i, d] = b.dataset.droplen.split(','); const x = t.drops[+i]; x.len = Math.max(0.5, Math.round((x.len + +d) * 10) / 10); changed(); again(); }; });
+  $$('#shBody [data-dropdel]').forEach(b => { b.onclick = () => { t.drops.splice(+b.dataset.dropdel, 1); changed(); again(); }; });
+  $('#eTrig').onclick = () => {
+    if (Trig.learn) { Trig.learn = null; return again(); }
+    Trig.learn = { tile: t, done: () => { if (sheetOpen()) again(); } }; again();
+  };
+  $$('#shBody [data-untrig]').forEach(b => { b.onclick = () => { t.trig.splice(+b.dataset.untrig, 1); changed(); again(); }; });
+  $('#eGroup').onchange = e => { const from = t.groupId; t.groupId = e.target.value; t.order = 1e6; renumber(from); renumber(t.groupId); changed(); };
+  $('#eMove').onclick = () => startMove(t);
+  $('#eDup').onclick = () => { S.tiles.push({ ...t, id: uid(), order: t.order + 0.5, played: false, trig: [], drops: (t.drops || []).map(d => ({ ...d })) }); renumber(t.groupId); changed(); toast('Kopian ligger bredvid originalet.'); };
+  $('#eDel').onclick = () => {
+    if (Engine.cur && Engine.cur.tile.id === t.id) Engine.stopAll();
+    closeSheet();
+    withUndo(`”${t.title}” togs bort.`, () => { S.tiles = S.tiles.filter(x => x.id !== t.id); renumber(t.groupId); });
   };
 }
 
-/* ---------- add sheet ---------- */
-let addTab = 'search';
+/* ---------- add songs and sounds ---------- */
+let addTab = 'search', lastTracks = [];
 function openAdd() {
-  const g = curGroup();
-  openSheet(`<h2><span>Lägg till i ${esc(g.name)}</span><button class="ghost" id="aClose">✕</button></h2>
-  <div class="seg"><button data-tab="search">Sök Spotify</button><button data-tab="pl">Mina spellistor</button><button data-tab="local">Ljudfil</button></div>
-  <div id="aBody"></div>`);
-  $('#aClose').onclick = closeSheet;
-  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { addTab = b.dataset.tab; drawAdd(); });
+  sheetHook = null;
+  openSheet('Lägg till i ' + curGroup().name, `<div class="seg">${[['search', 'Sök Spotify'], ['pl', 'Spellistor'], ['local', 'Ljudfil']].map(([k, n]) => `<button data-tab="${k}">${n}</button>`).join('')}</div><div id="aBody"></div>`);
+  $$('#shBody [data-tab]').forEach(b => { b.onclick = () => { addTab = b.dataset.tab; drawAdd(); }; });
   drawAdd();
 }
 function addSpotifyTrack(tr, gid) {
-  if (!tr || !tr.uri || !/^spotify:track:/.test(tr.uri)) return false;
-  const list = tilesOf(gid);
-  S.tiles.push({ id: uid(), groupId: gid, order: list.length, kind: 'spotify', uri: tr.uri, title: tr.name, artist: (tr.artists || []).map(a => a.name).join(', '), duration: (tr.duration_ms || 0) / 1000, start: 0, stop: null, color: 0, volume: -1, fadeIn: -1, fadeOut: -1, next: false, overlay: false, played: false, img: tr.album && tr.album.images && tr.album.images.length ? tr.album.images[tr.album.images.length - 1].url : '' });
+  if (!tr || !/^spotify:track:/.test(tr.uri || '')) return false;
+  S.tiles.push({ id: uid(), groupId: gid, order: tilesOf(gid).length, kind: 'spotify', uri: tr.uri, title: tr.name, alt: '', artist: (tr.artists || []).map(a => a.name).join(', '), duration: (tr.duration_ms || 0) / 1000, start: 0, stop: null, color: 0, volume: -1, fadeIn: -1, fadeOut: -1, next: false, overlay: false, played: false });
   return true;
 }
+const hasTrack = uri => S.tiles.some(t => t.uri === uri && t.groupId === curGroup().id);
 function trackRow(tr) {
   const img = tr.album && tr.album.images && tr.album.images.length ? tr.album.images[tr.album.images.length - 1].url : '';
-  const exists = S.tiles.some(t => t.uri === tr.uri && t.groupId === curGroup().id);
-  return `<div class="li"><img src="${esc(img)}" alt=""><div class="m"><b>${esc(tr.name)}</b><small>${esc((tr.artists || []).map(a => a.name).join(', '))} · ${fmt(tr.duration_ms / 1000)}</small></div><button data-add="${esc(tr.uri)}" ${exists ? 'disabled' : ''}>${exists ? '✓' : '＋'}</button></div>`;
+  const has = hasTrack(tr.uri);
+  return `<div class="li">${img ? `<img src="${esc(img)}" alt="">` : ''}<div class="m"><b>${esc(tr.name)}</b><small>${esc((tr.artists || []).map(a => a.name).join(', '))}, ${fmt(tr.duration_ms / 1000)}</small></div><button class="iconbtn" data-add="${esc(tr.uri)}" aria-label="Lägg till ${esc(tr.name)}" ${has ? 'disabled' : ''}>${ic(has ? 'check' : 'plus')}</button></div>`;
 }
-let lastTracks = [];
 function bindAddButtons() {
-  document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => { const tr = lastTracks.find(x => x.uri === b.dataset.add); if (addSpotifyTrack(tr, curGroup().id)) { b.textContent = '✓'; b.disabled = true; save(); renderAllTiles(); LP.paintAll(); } });
+  $$('#shBody [data-add]').forEach(b => { b.onclick = () => {
+    if (!addSpotifyTrack(lastTracks.find(x => x.uri === b.dataset.add), curGroup().id)) return;
+    b.innerHTML = ic('check'); b.disabled = true; save(); UI.build();
+  }; });
 }
 async function drawAdd() {
-  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('cur', b.dataset.tab === addTab));
+  $$('#shBody [data-tab]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === addTab)));
   const body = $('#aBody');
-  if (addTab !== 'local' && !SP.loggedIn) { body.innerHTML = `<p class="hint">Logga in på Spotify först.</p><button class="primary" id="aLogin">Logga in på Spotify</button>`; $('#aLogin').onclick = () => SP.login(); return; }
+  if (addTab !== 'local' && !SP.loggedIn) {
+    body.innerHTML = '<p class="hint" style="margin-top:14px">Koppla Spotify för att söka och hämta spellistor.</p><button class="btn primary" id="aLogin">Koppla Spotify</button>';
+    $('#aLogin').onclick = () => openMenu('spotify'); return;
+  }
   if (addTab === 'search') {
-    body.innerHTML = `<div class="row" style="margin-top:12px"><input id="aQ" placeholder="Låt eller artist" enterkeyhint="search"><button class="primary" id="aGo" style="flex:0 0 auto">Sök</button></div><div class="list" id="aRes"></div><div id="aMore"></div>`;
+    body.innerHTML = '<div class="row"><input type="search" id="aQ" placeholder="Låt eller artist" enterkeyhint="search" autocomplete="off"><button class="btn primary" id="aGo" style="flex:none">Sök</button></div><div class="list" id="aRes"></div><div id="aMore"></div>';
     let offset = 0;
-    const run = async (more) => {
-      const q = $('#aQ').value.trim(); if (!q) return; if (!more) { offset = 0; lastTracks = []; $('#aRes').innerHTML = '<p class="hint">Söker…</p>'; }
+    const run = async more => {
+      const q = $('#aQ').value.trim(); if (!q) return;
+      if (!more) { offset = 0; lastTracks = []; $('#aRes').innerHTML = '<p class="hint">Söker…</p>'; }
       try {
         const j = await SP.api('/search?type=track&limit=10&offset=' + offset + '&q=' + encodeURIComponent(q));
-        const items = (j.tracks && j.tracks.items) || []; lastTracks = lastTracks.concat(items); offset += items.length;
-        $('#aRes').innerHTML = lastTracks.map(trackRow).join('') || '<p class="hint">Inga träffar</p>'; bindAddButtons();
-        $('#aMore').innerHTML = items.length === 10 ? '<button style="width:100%;margin-top:8px" id="aMoreB">Visa fler</button>' : '';
+        const items = (j && j.tracks && j.tracks.items) || []; lastTracks = lastTracks.concat(items); offset += items.length;
+        if (!$('#aRes')) return;
+        $('#aRes').innerHTML = lastTracks.map(trackRow).join('') || `<p class="hint">Inga träffar på ”${esc(q)}”.</p>`; bindAddButtons();
+        $('#aMore').innerHTML = items.length === 10 ? '<div class="row"><button class="btn" id="aMoreB">Visa fler</button></div>' : '';
         if ($('#aMoreB')) $('#aMoreB').onclick = () => run(true);
-      } catch (e) { $('#aRes').innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; }
+      } catch (e) { if ($('#aRes')) $('#aRes').innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
     };
-    $('#aGo').onclick = () => run(false); $('#aQ').onkeydown = e => { if (e.key === 'Enter') run(false); };
-    setTimeout(() => $('#aQ') && $('#aQ').focus(), 50);
+    $('#aGo').onclick = () => run(false); $('#aQ').onkeydown = e => { if (e.key === 'Enter') { e.target.blur(); run(false); } };
+    setTimeout(() => { if ($('#aQ')) $('#aQ').focus(); }, 60);
   } else if (addTab === 'pl') {
-    body.innerHTML = '<p class="hint">Hämtar spellistor…</p>';
+    body.innerHTML = '<p class="hint" style="margin-top:14px">Hämtar dina spellistor…</p>';
     try {
       let pls = [], url = '/me/playlists?limit=50';
-      while (url && pls.length < 300) { const j = await SP.api(url); pls = pls.concat(j.items || []); url = j.next ? j.next.replace('https://api.spotify.com/v1', '') : null; }
-      body.innerHTML = `<div class="list"><div class="li"><div class="m"><b>Gillade låtar</b><small>Dina sparade låtar</small></div><button data-pl="__liked">Visa</button></div>` +
-        pls.filter(Boolean).map(p => `<div class="li"><img src="${esc(p.images && p.images.length ? p.images[p.images.length - 1].url : '')}" alt=""><div class="m"><b>${esc(p.name)}</b><small>${esc(p.owner && p.owner.display_name || '')}</small></div><button data-pl="${esc(p.id)}" data-name="${esc(p.name)}">Visa</button></div>`).join('') + '</div>';
-      document.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => showPlaylist(b.dataset.pl, b.dataset.name || 'Gillade låtar'));
-    } catch (e) { body.innerHTML = '<p class="hint">' + esc(e.message) + '</p>'; }
+      while (url && pls.length < 300) { const j = await SP.api(url); pls = pls.concat((j && j.items) || []); url = j && j.next ? j.next.replace('https://api.spotify.com/v1', '') : null; }
+      if (addTab !== 'pl' || !$('#aBody')) return;
+      body.innerHTML = '<div class="list" style="margin-top:14px"><div class="li"><div class="m"><b>Gillade låtar</b></div><button class="btn small" data-pl="__liked" data-name="Gillade låtar">Öppna</button></div>' +
+        pls.filter(Boolean).map(p => `<div class="li">${p.images && p.images.length ? `<img src="${esc(p.images[p.images.length - 1].url)}" alt="">` : ''}<div class="m"><b>${esc(p.name)}</b><small>${esc((p.owner && p.owner.display_name) || '')}</small></div><button class="btn small" data-pl="${esc(p.id)}" data-name="${esc(p.name)}">Öppna</button></div>`).join('') + '</div>';
+      $$('#shBody [data-pl]').forEach(b => { b.onclick = () => showPlaylist(b.dataset.pl, b.dataset.name); });
+    } catch (e) { body.innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
   } else {
-    body.innerHTML = `<p class="hint" style="margin-top:12px">Välj ljudfiler (mp3, wav, m4a…) från telefonen. Ljudeffekter som tutor och sirener kan spelas ovanpå musiken och tryckas flera gånger samtidigt.</p>
-      <div class="kv"><span>Lägg till som ljudeffekt (ovanpå musik)</span><input type="checkbox" id="aOver" checked></div>
-      <button class="primary" style="width:100%;margin-top:10px" id="aPick">Välj filer</button>`;
+    body.innerHTML = `<p class="hint" style="margin-top:14px">Välj ljudfiler från enheten, till exempel mp3, wav eller m4a.</p>
+      ${lineHtml('Lägg till som ljudeffekt som spelas ovanpå musiken', 'aOver', true)}
+      <div class="row"><button class="btn primary" id="aPick">Välj filer</button></div>`;
     $('#aPick').onclick = () => { $('#fileAudio').dataset.over = $('#aOver').checked ? '1' : ''; $('#fileAudio').click(); };
   }
 }
 async function showPlaylist(id, name) {
-  const body = $('#aBody'); body.innerHTML = '<p class="hint">Hämtar låtar…</p>';
+  const body = $('#aBody'); body.innerHTML = '<p class="hint" style="margin-top:14px">Hämtar låtar…</p>';
   try {
     let tracks = [], url = id === '__liked' ? '/me/tracks?limit=50' : '/playlists/' + id + '/items?limit=50';
     while (url && tracks.length < 1000) {
       const j = await SP.api(url);
-      (j.items || []).forEach(it => { const tr = it.item || it.track; if (tr && tr.type !== 'episode' && tr.uri && tr.uri.startsWith('spotify:track:')) tracks.push(tr); });
-      url = j.next ? j.next.replace('https://api.spotify.com/v1', '') : null;
+      ((j && j.items) || []).forEach(it => { const tr = it.item || it.track; if (tr && /^spotify:track:/.test(tr.uri || '')) tracks.push(tr); });
+      url = j && j.next ? j.next.replace('https://api.spotify.com/v1', '') : null;
     }
+    if (!$('#aBody')) return;
     lastTracks = tracks;
-    body.innerHTML = `<div class="row" style="margin-top:12px"><button id="aBack" style="flex:0 0 auto">←</button><b style="flex:1">${esc(name)} (${tracks.length})</b><button class="primary" id="aAll" style="flex:0 0 auto">Lägg till alla</button></div><div class="list">${tracks.map(trackRow).join('')}</div>`;
-    $('#aBack').onclick = () => drawAdd();
-    $('#aAll').onclick = () => { let n = 0; tracks.forEach(tr => { if (!S.tiles.some(t => t.uri === tr.uri && t.groupId === curGroup().id) && addSpotifyTrack(tr, curGroup().id)) n++; }); save(); renderAllTiles(); LP.paintAll(); toast(n + ' låtar tillagda'); showPlaylist(id, name); };
+    body.innerHTML = `<div class="row"><button class="btn small" id="aBack" style="flex:none">Tillbaka</button><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</b><button class="btn small primary" id="aAll" style="flex:none">Lägg till alla ${tracks.length}</button></div><div class="list">${tracks.map(trackRow).join('')}</div>`;
+    $('#aBack').onclick = drawAdd;
+    $('#aAll').onclick = () => { let n = 0; tracks.forEach(tr => { if (!hasTrack(tr.uri) && addSpotifyTrack(tr, curGroup().id)) n++; }); save(); UI.build(); toast(n + ' låtar lades till i ' + curGroup().name + '.'); showPlaylist(id, name); };
     bindAddButtons();
-  } catch (e) { body.innerHTML = '<p class="hint">' + esc(e.message) + ' — Spotify låter bara appar läsa spellistor du själv äger eller samarbetar på.</p><button id="aBack">←</button>'; $('#aBack').onclick = () => drawAdd(); }
+  } catch (e) {
+    body.innerHTML = `<p class="hint" style="margin-top:14px">${esc(e.message)}. Spotify låter bara appar läsa spellistor som du själv äger eller samarbetar i.</p><button class="btn" id="aBack">Tillbaka</button>`;
+    $('#aBack').onclick = drawAdd;
+  }
 }
 $('#fileAudio').onchange = async e => {
-  const files = [...e.target.files]; e.target.value = ''; const over = !!$('#fileAudio').dataset.over; const gid = curGroup().id; let n = 0;
+  const files = [...e.target.files]; e.target.value = '';
+  const over = !!$('#fileAudio').dataset.over, gid = curGroup().id; let n = 0;
   for (const f of files) {
+    const soundId = uid();
     try {
-      const soundId = uid(); await DB.put('audio', soundId, f);
+      await DB.put('audio', soundId, f);
       const buf = await AudioL.buffer(soundId);
-      S.tiles.push({ id: uid(), groupId: gid, order: tilesOf(gid).length, kind: 'local', soundId, title: f.name.replace(/\.[^.]+$/, ''), artist: '', duration: buf.duration, start: 0, stop: null, color: over ? 5 : 0, volume: -1, fadeIn: -1, fadeOut: -1, next: false, overlay: over, played: false });
+      S.tiles.push({ id: uid(), groupId: gid, order: tilesOf(gid).length, kind: 'local', soundId, title: f.name.replace(/\.[^.]+$/, ''), alt: '', artist: '', duration: buf.duration, start: 0, stop: null, color: over ? 5 : 0, volume: -1, fadeIn: -1, fadeOut: -1, next: false, overlay: over, played: false });
       n++;
-    } catch (err) { toast('Kunde inte läsa ' + f.name); }
+    } catch (err) { DB.del('audio', soundId).catch(() => {}); toast(`${f.name} gick inte att läsa som ljud.`); }
   }
-  save(); renderAllTiles(); LP.paintAll(); toast(n + ' ljud tillagda'); closeSheet();
+  if (n) { save(); UI.build(); closeSheet(); toast(n === 1 ? 'Ljudet lades till.' : n + ' ljud lades till.'); }
 };
 
-/* ---------- settings ---------- */
-function openSettings() {
-  const st = S.settings; const { ins, outs } = LP.ports();
-  openSheet(`<h2><span>Meny</span><button class="ghost" id="sClose">✕</button></h2>
-  <h3>Spotify</h3>
-  ${SP.loggedIn ? `<div class="kv"><span>Inloggad · spelare: <b>${SP.status === 'ready' ? 'redo' : SP.status === 'error' ? 'fel' : 'startar…'}</b></span><button id="sLogout">Logga ut</button></div>`
-    : `<p class="hint">Engångsinställning: skapa en app på <b>developer.spotify.com/dashboard</b>, lägg in denna Redirect URI:<br><code>${esc(SP.redirect)}</code><br>och klistra in appens Client ID här.</p>`}
-  <label>Client ID</label><input id="sCid" value="${esc(SP.clientId)}" placeholder="t.ex. 3f9a…" autocomplete="off">
-  ${SP.loggedIn ? '' : '<button class="primary" style="width:100%;margin-top:10px" id="sLogin">Logga in på Spotify</button>'}
-  <h3>Launchpad</h3>
-  <div class="kv"><span>${LP.connected ? 'Ansluten: ' + esc(LP.output.name) : 'Inte ansluten'}</span><button id="sLp">${LP.connected ? 'Anslut igen' : 'Anslut'}</button></div>
-  ${ins.length ? `<label>MIDI in</label><select id="sLpIn"><option value="">Automatiskt</option>${ins.map(p => `<option value="${esc(p.id)}" ${st.lpIn === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
-  <label>MIDI ut</label><select id="sLpOut"><option value="">Automatiskt</option>${outs.map(p => `<option value="${esc(p.id)}" ${st.lpOut === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : ''}
-  <p class="hint">Rad 1–7 visar aktuell grupp (56 rutor per sida). Nedersta raden = de första 8 ljudeffekterna (tutor m.m.), alltid där oavsett grupp. Översta raden: ▲▼ byt sida · ◀▶ byt grupp · Session = tona ut · Drums = stoppa allt · Keys = börja om · User = slumpa i gruppen. Högra kolumnen: knapp 1–7 = slumpa en ospelad låt i grupp 1–7 (grön = låtar kvar). Nedersta högra = tona ut.</p>
-  <h3>Ljud</h3>
-  <label>Musikvolym <b id="sMvV">${st.musicVol}%</b></label><input type="range" id="sMv" min="0" max="100" step="5" value="${st.musicVol}">
-  <label>Ljudeffekter volym <b id="sSvV">${st.sfxVol}%</b></label><input type="range" id="sSv" min="0" max="100" step="5" value="${st.sfxVol}">
-  <label>Standard uttoning <b id="sFoV">${st.fadeOut} s</b></label><input type="range" id="sFo" min="0" max="10" step="0.5" value="${st.fadeOut}">
-  <label>Standard intoning <b id="sFiV">${st.fadeIn} s</b></label><input type="range" id="sFi" min="0" max="10" step="0.5" value="${st.fadeIn}">
-  <div class="kv"><span>Markera spelade låtar</span><input type="checkbox" id="sMark" ${st.markPlayed ? 'checked' : ''}></div>
-  <div class="kv"><span>Håll högtalaren vaken (tyst Spotify-spår när inget spelas)</span><input type="checkbox" id="sAlive" ${st.keepAlive ? 'checked' : ''}></div>
-  <div class="kv"><span>Håll skärmen tänd</span><input type="checkbox" id="sAwake" ${st.keepAwake ? 'checked' : ''}></div>
-  <div class="row" style="margin-top:10px"><button id="sResetG">Nollställ spelade i ${esc(curGroup().name)}</button><button id="sResetAll">Nollställ alla</button></div>
-  <h3>Grupper</h3>
-  <div class="list">${S.groups.map((g, i) => `<div class="li"><div class="m"><b>${esc(g.name)}</b><small>${tilesOf(g.id).length} rutor${i < 7 ? ' · Launchpad-knapp ' + (i + 1) : ''}</small></div><button data-gu="${g.id}">▲</button><button data-gr="${g.id}">Byt namn</button><button data-gd="${g.id}">✕</button></div>`).join('')}</div>
-  <button style="width:100%;margin-top:8px" id="sAddG">＋ Ny grupp</button>
-  <h3>Synk mellan enheter</h3>
-  <p class="hint">Samma setup på mobilen, surfplattan och datorn. Sparas i ett privat GitHub-repo. Fyll i samma två fält på varje enhet.</p>
-  <label>Repo</label><input id="syRepo" value="${esc(Sync.repo)}" placeholder="craler/matchljud-data" autocomplete="off">
-  <label>Token</label><input id="syTok" type="password" value="${esc(Sync.token)}" placeholder="github_pat_…" autocomplete="off">
-  <div class="kv"><span id="syStat">${esc(Sync.status || (Sync.on ? 'Påslagen' : 'Av'))}</span><button id="syNow">Synka nu</button></div>
-  <h3>Backup</h3>
-  <p class="hint">Importera en Sports Audio DJ-backup (.sadj) eller en backup från den här appen (.json). Import ersätter allt som finns nu.</p>
-  <div class="row"><button id="sImp">Importera backup</button><button id="sExp">Exportera backup</button></div>
-  <p class="hint" style="margin-top:22px">Matchljud · allt sparas lokalt i den här webbläsaren.</p>`);
-  $('#sClose').onclick = closeSheet;
-  $('#sCid').onchange = e => { SP.clientId = e.target.value; };
-  if ($('#sLogin')) $('#sLogin').onclick = () => { SP.clientId = $('#sCid').value; SP.login(); };
-  if ($('#sLogout')) $('#sLogout').onclick = () => { SP.logout(); openSettings(); };
-  $('#sLp').onclick = async () => { await LP.connect(true); openSettings(); };
-  if ($('#sLpIn')) $('#sLpIn').onchange = e => { st.lpIn = e.target.value; save(); LP.pick(true); };
-  if ($('#sLpOut')) $('#sLpOut').onchange = e => { st.lpOut = e.target.value; save(); LP.pick(true); };
-  const rng = (id, key, unit) => { $('#' + id).oninput = e => { st[key] = +e.target.value; $('#' + id + 'V').textContent = st[key] + unit; save(); if (key === 'musicVol' && Engine.cur && Engine.cur.kind === 'spotify' && !Engine.cur.stopping) SP.setVol(Engine.vol(Engine.cur.tile)); }; };
-  rng('sMv', 'musicVol', '%'); rng('sSv', 'sfxVol', '%'); rng('sFo', 'fadeOut', ' s'); rng('sFi', 'fadeIn', ' s');
-  $('#sMark').onchange = e => { st.markPlayed = e.target.checked; save(); };
-  $('#sAwake').onchange = e => { st.keepAwake = e.target.checked; save(); wake(); };
-  $('#sResetG').onclick = () => { tilesOf(curGroup().id).forEach(t => t.played = false); save(); renderAllTiles(); LP.paintAll(); toast('Nollställt'); };
-  $('#sResetAll').onclick = () => { S.tiles.forEach(t => t.played = false); save(); renderAllTiles(); LP.paintAll(); toast('Alla nollställda'); };
-  document.querySelectorAll('[data-gu]').forEach(b => b.onclick = () => { const i = S.groups.findIndex(g => g.id === b.dataset.gu); if (i > 0) { const [g] = S.groups.splice(i, 1); S.groups.splice(i - 1, 0, g); save(); renderAllTiles(); LP.paintAll(); openSettings(); } });
-  document.querySelectorAll('[data-gr]').forEach(b => b.onclick = () => { const g = group(b.dataset.gr); const n = prompt('Nytt namn', g.name); if (n) { g.name = n.trim(); save(); renderAllTiles(); openSettings(); } });
-  document.querySelectorAll('[data-gd]').forEach(b => b.onclick = () => { const g = group(b.dataset.gd); if (S.groups.length < 2) return toast('Minst en grupp behövs'); if (!confirm('Ta bort gruppen "' + g.name + '" och alla dess rutor?')) return; S.tiles = S.tiles.filter(t => t.groupId !== g.id); S.groups = S.groups.filter(x => x !== g); if (S.curGroup === g.id) S.curGroup = S.groups[0].id; save(); renderAllTiles(); LP.paintAll(); openSettings(); });
-  $('#sAddG').onclick = () => { const n = prompt('Namn på gruppen'); if (n) { const g = { id: uid(), name: n.trim() }; S.groups.push(g); S.curGroup = g.id; save(); renderAllTiles(); LP.paintAll(); openSettings(); } };
-  $('#sAlive').onchange = e => { st.keepAlive = e.target.checked; save(); if (!st.keepAlive && Idle.on && !Engine.cur) { Idle.on = false; SP.pause(); } };
-  $('#syRepo').onchange = e => { Sync.repo = e.target.value; localStorage.removeItem('sy_sha'); localStorage.removeItem('sy_audio'); };
-  $('#syTok').onchange = e => { Sync.token = e.target.value; };
-  $('#syNow').onclick = async () => { Sync.repo = $('#syRepo').value; Sync.token = $('#syTok').value; await Sync.pull(true); };
-  $('#sImp').onclick = () => $('#fileImport').click();
-  $('#sExp').onclick = exportBackup;
+/* ---------- menu ---------- */
+function lpMapHtml() {
+  const top = [['z-nav', '▲'], ['z-nav', '▼'], ['z-nav', '◀'], ['z-nav', '▶'], ['z-fade', ''], ['z-stop', ''], ['z-again', ''], ['z-rnd', '']];
+  let cells = top.map(([c, s]) => `<i class="k ${c}">${s}</i>`).join('') + '<i class="logo"></i>';
+  for (let r = 0; r < 8; r++) { for (let c = 0; c < 8; c++) cells += `<i class="${r === 7 ? 'z-fx' : 'z-tile'}"></i>`; cells += `<i class="k ${r === 7 ? 'z-fade' : 'z-rndg'}">${r < 7 ? r + 1 : ''}</i>`; }
+  const names = S.groups.slice(0, 7).map(g => esc(g.name)).join(', ');
+  return `<div class="lpmap" aria-hidden="true">${cells}</div><ul class="legend">
+    <li><i class="chip z-tile"></i><span><b>Rad 1–7</b> är rutorna i gruppen som visas, i samma ordning som på skärmen.</span></li>
+    <li><i class="chip z-fx"></i><span><b>Nedersta raden</b> är ljudeffekterna. De ligger kvar i alla grupper.</span></li>
+    <li><i class="chip z-rndg"></i><span><b>Sidoknapp 1–7</b> slumpar en ospelad låt ur varsin grupp: ${names}.</span></li>
+    <li><i class="chip z-nav"></i><span><b>▲ ▼</b> byter sida när gruppen har fler än 56 rutor. <b>◀ ▶</b> byter grupp.</span></li>
+    <li><i class="chip z-fade"></i><span><b>Session</b> och sidoknappen längst ner tonar ut. Två tryck stoppar direkt.</span></li>
+    <li><i class="chip z-stop"></i><span><b>Drums</b> stoppar allt ljud på en gång.</span></li>
+    <li><i class="chip z-again"></i><span><b>Keys</b> börjar om låten.</span></li>
+    <li><i class="chip z-rnd"></i><span><b>User</b> slumpar en ospelad låt i gruppen som visas.</span></li></ul>`;
 }
+const Menu = {
+  root() {
+    const played = S.tiles.filter(t => t.played && isMusic(t)).length;
+    const sp = !SP.loggedIn ? 'Inte kopplat' : SP.status === 'ready' ? 'Anslutet' : SP.status === 'error' ? 'Fel' : 'Startar';
+    const row = (page, name, state) => `<button class="navrow" data-page="${page}"><b>${name}</b><span>${esc(state)}</span>${ic('chevron')}</button>`;
+    openSheet('Meny', `
+      <button class="btn wide ${played ? 'primary' : ''}" id="mNew" ${played ? '' : 'disabled'}>${played ? `Ny match: nollställ ${played} spelade` : 'Inga spelade låtar att nollställa'}</button>
+      <div style="margin-top:10px">
+      ${row('spotify', 'Spotify', sp)}
+      ${row('launchpad', 'Launchpad', LP.connected ? 'Ansluten' : 'Inte ansluten')}
+      ${row('groups', 'Grupper', S.groups.length + ' st')}
+      ${row('settings', 'Ljud och skärm', `Tonar ut på ${String(S.settings.fadeOut).replace('.', ',')} s`)}
+      ${row('sync', 'Synk mellan enheter', Sync.on ? (Sync.status || 'På') : 'Av')}
+      ${row('backup', 'Backup', '')}
+      </div><p class="foot">Matchljud ${VERSION}. Allt sparas i den här webbläsaren.</p>`);
+    $('#mNew').onclick = () => { S.tiles.forEach(t => { t.played = false; }); save(); UI.refresh(); closeSheet(); toast('Alla låtar är ospelade igen.'); };
+    $$('#shBody [data-page]').forEach(b => { b.onclick = () => openMenu(b.dataset.page); });
+  },
+  spotify() {
+    const back = { back: () => openMenu() };
+    if (SP.loggedIn) {
+      const st = SP.status === 'ready' ? 'Spelaren är redo.' : SP.status === 'error' ? 'Spelaren startade inte. Kontrollera internet och att kontot har Premium, och ladda sedan om sidan.' : 'Spelaren startar…';
+      openSheet('Spotify', `<p class="hint">${st}</p>
+        <div class="field"><label for="sCid">Client ID</label><input type="text" id="sCid" value="${esc(SP.clientId)}" autocomplete="off"></div>
+        <div class="row"><button class="btn" id="sLogout">Logga ut</button></div>`, back);
+      $('#sCid').onchange = e => { SP.clientId = e.target.value; save(); };
+      $('#sLogout').onclick = () => { SP.logout(); UI.build(); Menu.spotify(); };
+      return;
+    }
+    openSheet('Koppla Spotify', `<p class="hint">Görs en gång per enhet. Du behöver Spotify Premium.</p>
+      <ol class="steps">
+        <li><b>Skapa en app</b> på developer.spotify.com/dashboard. Kryssa i Web API och Web Playback SDK.</li>
+        <li><b>Lägg in den här adressen</b> som Redirect URI i appen:<code id="sRedir">${esc(SP.redirect)}</code><button class="btn small" id="sCopy">Kopiera adressen</button></li>
+        <li><b>Klistra in appens Client ID</b> här:<div class="field" style="margin-top:8px"><input type="text" id="sCid" aria-label="Client ID" value="${esc(SP.clientId)}" placeholder="32 tecken" autocomplete="off"></div></li>
+      </ol>
+      <div class="row"><button class="btn primary" id="sLogin">Logga in på Spotify</button></div>
+      <p class="hint">Om inloggningen nekas: lägg till ditt Spotify-konto under User Management i appen du skapade.</p>`, back);
+    $('#sCopy').onclick = () => navigator.clipboard.writeText(SP.redirect).then(() => toast('Adressen är kopierad.'), () => toast('Markera adressen och kopiera den för hand.'));
+    $('#sCid').onchange = e => { SP.clientId = e.target.value; save(); };
+    $('#sLogin').onclick = () => { SP.clientId = $('#sCid').value; SP.login(); };
+  },
+  launchpad() {
+    const st = S.settings, { ins, outs } = LP.ports();
+    const sel = (id, label, list, cur) => `<div class="field"><label for="${id}">${label}</label><select id="${id}"><option value="">Välj automatiskt</option>${list.map(p => `<option value="${esc(p.id)}" ${cur === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>`;
+    openSheet('Launchpad', `
+      <div class="line"><span>${LP.connected ? 'Ansluten: ' + esc(LP.output.name) : 'Inte ansluten'}</span><button class="btn small" id="sLp">${LP.connected ? 'Anslut igen' : 'Anslut'}</button></div>
+      ${LP.connected ? '' : '<p class="hint">Koppla in Launchpad Mini MK3 med USB och tryck Anslut. Chrome frågar om lov att styra MIDI-enheter. Svara ja, annars kan appen inte tända knapparna.</p>'}
+      ${lpMapHtml()}
+      <p class="hint" style="margin-top:14px">Vill du ha en viss låt på en viss knapp? Håll inne rutan på skärmen och välj ”Koppla en knapp”.</p>
+      ${ins.length ? `<h3 class="sec">MIDI-portar</h3><p class="hint">Behövs bara om fel enhet valdes.</p>${sel('sLpIn', 'Ingång', ins, st.lpIn)}${sel('sLpOut', 'Utgång', outs, st.lpOut)}` : ''}`, { back: () => openMenu() });
+    $('#sLp').onclick = async () => { await LP.connect(true); if (sheetOpen()) Menu.launchpad(); };
+    if ($('#sLpIn')) { $('#sLpIn').onchange = e => { st.lpIn = e.target.value; save(); LP.pick(true); }; $('#sLpOut').onchange = e => { st.lpOut = e.target.value; save(); LP.pick(true); }; }
+  },
+  groups() {
+    const learning = g => Trig.learn && Trig.learn.group === g;
+    openSheet('Grupper', `<p class="hint">Ordningen här är ordningen på flikarna och på Launchpads sidoknappar. Varje grupp kan få en egen knapp som slumpar en ospelad låt.</p>
+      <div class="list">${S.groups.map((g, i) => `<div class="gcard">
+        <div class="top"><input type="text" data-gname="${g.id}" aria-label="Gruppens namn" value="${esc(g.name)}">
+          <button class="iconbtn" data-gup="${g.id}" aria-label="Flytta upp" ${i ? '' : 'disabled'}>${ic('up')}</button>
+          <button class="iconbtn" data-gdel="${g.id}" aria-label="Ta bort gruppen">${ic('trash')}</button></div>
+        <p class="hint">${tilesOf(g.id).length} rutor. Slumpas med ${[...(g.trig || []).map(k => Trig.label(k)), i < 7 ? 'sidoknapp ' + (i + 1) : ''].filter(Boolean).join(' eller ') || 'knappen på skärmen'}.</p>
+        <div class="row"><button class="btn small" data-gtrig="${g.id}">${learning(g) ? 'Tryck på knappen nu… (avbryt)' : 'Koppla en knapp'}</button>${(g.trig || []).length ? `<button class="btn small" data-gun="${g.id}">Koppla loss</button>` : ''}</div></div>`).join('')}</div>
+      <div class="row"><input type="text" id="gNew" placeholder="Ny grupp" aria-label="Namn på ny grupp"><button class="btn primary" id="gAdd" style="flex:none">Lägg till</button></div>`, { back: () => openMenu(), keep: true });
+    const again = () => { if (sheetOpen()) Menu.groups(); };
+    $$('#shBody [data-gname]').forEach(el => { el.onchange = () => { const g = group(el.dataset.gname); const n = el.value.trim(); if (n) { g.name = n; save(); UI.build(); } else el.value = g.name; }; });
+    $$('#shBody [data-gup]').forEach(b => { b.onclick = () => { const i = S.groups.findIndex(g => g.id === b.dataset.gup); if (i > 0) { S.groups.splice(i - 1, 0, S.groups.splice(i, 1)[0]); save(); UI.build(); again(); } }; });
+    $$('#shBody [data-gdel]').forEach(b => { b.onclick = () => {
+      const g = group(b.dataset.gdel); if (S.groups.length < 2) return toast('Minst en grupp måste finnas kvar.');
+      const n = tilesOf(g.id).length;
+      withUndo(`Gruppen ${g.name} och dess ${n} rutor togs bort.`, () => { S.tiles = S.tiles.filter(t => t.groupId !== g.id); S.groups = S.groups.filter(x => x !== g); });
+      again();
+    }; });
+    $$('#shBody [data-gtrig]').forEach(b => { b.onclick = () => { const g = group(b.dataset.gtrig); Trig.learn = learning(g) ? null : { group: g, done: again }; again(); }; });
+    $$('#shBody [data-gun]').forEach(b => { b.onclick = () => { group(b.dataset.gun).trig = []; save(); UI.build(); again(); }; });
+    const add = () => { const n = $('#gNew').value.trim(); if (!n) return; const g = { id: uid(), name: n }; S.groups.push(g); S.curGroup = g.id; save(); UI.build(); again(); };
+    $('#gAdd').onclick = add; $('#gNew').onkeydown = e => { if (e.key === 'Enter') add(); };
+  },
+  settings() {
+    const st = S.settings, c = v => String(v).replace('.', ',');
+    openSheet('Ljud och skärm', `
+      ${rangeHtml('sMv', 'Musikvolym', st.musicVol + ' %', st.musicVol, 0, 100, 5)}
+      ${rangeHtml('sSv', 'Volym på ljudeffekter', st.sfxVol + ' %', st.sfxVol, 0, 100, 5)}
+      ${rangeHtml('sFo', 'Tona ut', c(st.fadeOut) + ' s', st.fadeOut, 0, 10, 0.5)}
+      ${rangeHtml('sFi', 'Tona in', c(st.fadeIn) + ' s', st.fadeIn, 0, 10, 0.5)}
+      <div style="margin-top:8px">
+      ${lineHtml('Visa spelade låtar som släckta', 'sMark', st.markPlayed)}
+      ${lineHtml('Håll högtalaren vaken med ett tyst spår mellan låtarna', 'sAlive', st.keepAlive)}
+      ${lineHtml('Håll skärmen tänd', 'sAwake', st.keepAwake)}
+      </div>
+      <div class="field"><label>Rutornas storlek</label><div class="seg">${[['s', 'Små'], ['m', 'Mellan'], ['l', 'Stora']].map(([k, n]) => `<button data-size="${k}" aria-pressed="${st.tileSize === k}">${n}</button>`).join('')}</div></div>`, { back: () => openMenu() });
+    const rng = (id, key, unit) => { $('#' + id).oninput = e => { st[key] = +e.target.value; $('#' + id + 'V').textContent = c(st[key]) + unit; save(); if (key === 'musicVol' && Engine.cur) { Mix.base = Engine.vol(Engine.cur.tile); Mix.apply(); } }; };
+    rng('sMv', 'musicVol', ' %'); rng('sSv', 'sfxVol', ' %'); rng('sFo', 'fadeOut', ' s'); rng('sFi', 'fadeIn', ' s');
+    $('#sMark').onchange = e => { st.markPlayed = e.target.checked; save(); };
+    $('#sAlive').onchange = e => { st.keepAlive = e.target.checked; save(); if (!st.keepAlive && Idle.on && !Engine.cur) { Idle.on = false; SP.pause(); } };
+    $('#sAwake').onchange = e => { st.keepAwake = e.target.checked; save(); wake(); };
+    $$('#shBody [data-size]').forEach(b => { b.onclick = () => { st.tileSize = b.dataset.size; save(); applyTileSize(); $$('#shBody [data-size]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }; });
+  },
+  sync() {
+    openSheet('Synk mellan enheter', `<p class="hint">Samma låtar, grupper och knappar på mobilen, plattan och datorn. Allt sparas i ett privat GitHub-repo som bara du kommer åt. Vilka låtar som är spelade synkas inte.</p>
+      <ol class="steps">
+        <li><b>Skapa ett privat repo</b> på GitHub, till exempel <i>matchljud-data</i>.</li>
+        <li><b>Skapa en nyckel</b> under Settings, Developer settings, Fine-grained tokens. Ge den tillgång till bara det repot, med Contents satt till Read and write.</li>
+        <li><b>Fyll i båda fälten</b> här, på varje enhet.</li>
+      </ol>
+      <div class="field"><label for="syRepo">Repo</label><input type="text" id="syRepo" value="${esc(Sync.repo)}" placeholder="användarnamn/matchljud-data" autocomplete="off" autocapitalize="off"></div>
+      <div class="field"><label for="syTok">Nyckel</label><input type="password" id="syTok" value="${esc(Sync.token)}" placeholder="github_pat_…" autocomplete="off"></div>
+      <div class="line" style="margin-top:8px"><span id="syStat">${esc(Sync.status || (Sync.on ? 'På' : 'Av'))}</span><button class="btn small primary" id="syNow">Synka nu</button></div>`, { back: () => openMenu() });
+    $('#syRepo').onchange = e => { if (e.target.value.trim() !== Sync.repo) { Sync.repo = e.target.value; localStorage.removeItem('sy_sha'); localStorage.removeItem('sy_audio'); } };
+    $('#syTok').onchange = e => { Sync.token = e.target.value; };
+    $('#syNow').onclick = () => { $('#syRepo').onchange({ target: $('#syRepo') }); Sync.token = $('#syTok').value; if (!Sync.on) return toast('Fyll i både repo och nyckel.'); Sync.pull(true); };
+  },
+  backup() {
+    openSheet('Backup', `<p class="hint">Läs in en backup från Sports Audio DJ (.sadj) eller från Matchljud (.json). Det som finns här nu ersätts.</p>
+      <div class="row"><button class="btn primary" id="sImp">Läs in backup</button></div>
+      <p class="hint" style="margin-top:22px">Spara allt i en fil, med ljudeffekterna inbakade.</p>
+      <div class="row"><button class="btn" id="sExp">Spara backup</button></div>`, { back: () => openMenu() });
+    $('#sImp').onclick = () => $('#fileImport').click();
+    $('#sExp').onclick = exportBackup;
+  },
+};
+function openMenu(page = 'root') { sheetHook = null; Trig.learn = null; (Menu[page] || Menu.root)(); }
 
 /* ---------------- import / export ---------------- */
 async function readZip(buf) {
-  const dv = new DataView(buf); const u8 = new Uint8Array(buf); const files = {};
-  let eocd = -1; for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-  if (eocd < 0) throw new Error('Inte en giltig zip/sadj-fil');
+  const dv = new DataView(buf), u8 = new Uint8Array(buf), files = {}, dec = new TextDecoder();
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('filen är inte en backup');
   const count = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
-  const dec = new TextDecoder();
   for (let k = 0; k < count; k++) {
     if (dv.getUint32(p, true) !== 0x02014b50) break;
     const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true), elen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
     const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen)); p += 46 + nlen + elen + clen;
     if (name.endsWith('/')) continue;
-    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
-    const raw = u8.slice(start, start + csize);
+    const at = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    const raw = u8.slice(at, at + csize);
     files[name] = method === 0 ? raw : method === 8 ? new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer()) : null;
   }
   return files;
 }
 const SADJ_COLOR = { '-1': 0, 0: 7, 1: 1, 2: 2, 3: 5, 4: 3, 5: 3, 6: 6, 7: 4 };
+const sadjKey = k => (/^[0-9]$/.test(k || '') ? ['k|Digit' + k] : /^[a-z]$/i.test(k || '') ? ['k|Key' + k.toUpperCase()] : []);
+const sadjVol = v => (v >= 0 ? Math.round(clamp(v <= 1 ? v * 100 : v <= 10 ? v * 10 : v, 0, 100)) : -1);
 async function importSadj(files) {
-  const mk = Object.keys(files).find(n => /manifest\.json$/.test(n)); if (!mk) throw new Error('Hittar ingen manifest.json i backupen');
+  const mk = Object.keys(files).find(n => /manifest\.json$/.test(n)); if (!mk) throw new Error('backupen saknar innehållsförteckning');
   const m = JSON.parse(new TextDecoder().decode(files[mk]));
-  const st = defaultState(); st.groups = []; const audio = {};
+  const st = defaultState(); st.groups = []; const audio = {}; let missing = 0;
   const as = m.appSettings || {};
   st.settings.fadeOut = as.fadeOutSec ?? 2; st.settings.fadeIn = as.fadeInSec ?? 0; st.settings.markPlayed = as.useHasPlayedMarking ?? true;
-  const sounds = {}; (m.sounds || []).forEach(s => sounds[s.soundUUID] = s);
-  const gs = (m.playbackGroups || []).slice().sort((a, b) => a.orderIndex - b.orderIndex);
-  let missing = 0;
-  for (const g of gs) {
-    const gid = uid(); st.groups.push({ id: gid, name: g.groupName });
-    const pbs = (m.playbacks || []).filter(p => p.groupUUID === g.playbackGroupUUID).sort((a, b) => a.orderIndex - b.orderIndex);
-    pbs.forEach((p, i) => {
+  const sounds = {}; (m.sounds || []).forEach(s => { sounds[s.soundUUID] = s; });
+  for (const g of (m.playbackGroups || []).slice().sort((a, b) => a.orderIndex - b.orderIndex)) {
+    const gid = uid(); st.groups.push({ id: gid, name: g.groupName, trig: sadjKey(g.hotKey) });
+    (m.playbacks || []).filter(p => p.groupUUID === g.playbackGroupUUID).sort((a, b) => a.orderIndex - b.orderIndex).forEach((p, i) => {
       const s = sounds[p.soundUUID]; if (!s) { missing++; return; }
       const dur = s.playbackDuration || 0;
       let stop = (p.stopAtSeconds || 0) + (p.stopAtSubSec || 0); if (!stop || (dur && stop >= dur - 0.05)) stop = null;
       const t = { id: uid(), groupId: gid, order: i, title: (p.displayTitle || s.title || '').replace(/\.(wav|mp3|m4a|aiff?|caf|aac)$/i, ''), alt: p.altTitle || '', artist: s.artist || '', duration: dur,
-        start: (p.startAtSeconds || 0) + (p.startAtSubSec || 0), stop, color: SADJ_COLOR[p.songCellColor] ?? 0,
-        volume: p.volume >= 0 ? Math.min(100, p.volume * (p.volume <= 10 ? 10 : 1)) : -1, fadeIn: p.fadeInSeconds ?? -1, fadeOut: p.fadeOutSeconds ?? -1,
-        next: !!p.willPlayNextSound, played: !!p.hasBeenPlayed, loop: p.loopCount > 0 ? p.loopCount : 0 };
+        start: (p.startAtSeconds || 0) + (p.startAtSubSec || 0), stop, color: SADJ_COLOR[p.songCellColor] ?? 0, volume: sadjVol(p.volume),
+        fadeIn: p.fadeInSeconds >= 0 ? p.fadeInSeconds : -1, fadeOut: p.fadeOutSeconds >= 0 ? p.fadeOutSeconds : -1,
+        next: !!p.willPlayNextSound, played: !!p.hasBeenPlayed, loop: p.loopCount > 0 ? p.loopCount : 0, trig: sadjKey(p.hotKey) };
       if (s.trackID) { t.kind = 'spotify'; t.uri = 'spotify:track:' + s.trackID; t.overlay = false; }
       else {
-        const fname = s.localFileName || (s.soundUUID + '.wav'); const key = Object.keys(files).find(n => n.endsWith('/' + fname) || n === fname);
-        if (!key) { missing++; return; }
-        t.kind = 'local'; t.soundId = s.soundUUID; t.overlay = true; t.next = false; audio[s.soundUUID] = new Blob([files[key]], { type: 'audio/wav' });
+        const fname = s.localFileName || (s.soundUUID + '.wav'); const key = Object.keys(files).find(n => n === fname || n.endsWith('/' + fname));
+        if (!key || !files[key]) { missing++; return; }
+        t.kind = 'local'; t.soundId = s.soundUUID; t.overlay = true; t.next = false; t.loop = 0; audio[s.soundUUID] = new Blob([files[key]], { type: 'audio/wav' });
       }
       st.tiles.push(t);
     });
   }
-  st.curGroup = st.groups[0] && st.groups[0].id;
+  if (!st.groups.length) throw new Error('backupen innehåller inga grupper');
+  st.curGroup = st.groups[0].id;
   return { st, audio, missing };
 }
 async function importOwn(j) {
-  const st = j.state; if (!st || !st.groups) throw new Error('Okänt backupformat');
+  const st = j && j.state; if (!st || !Array.isArray(st.groups) || !st.groups.length) throw new Error('filen är inte en backup från Matchljud');
   const audio = {}; for (const [k, v] of Object.entries(j.audio || {})) audio[k] = await (await fetch(v)).blob();
   return { st: { ...defaultState(), ...st, settings: { ...defaultState().settings, ...st.settings } }, audio, missing: 0 };
 }
 async function applyImport({ st, audio, missing }) {
-  await Engine.stopAll();
+  Engine.stopAll();
   await DB.clear('audio'); for (const [k, b] of Object.entries(audio)) await DB.put('audio', k, b);
   AudioL.buffers.clear(); S = st; await DB.put('kv', 'state', S);
-  lpPage = 0; renderAllTiles(); LP.paintAll(); AudioL.preload(); Sync.schedule();
-  toast(`Importerat: ${S.groups.length} grupper, ${S.tiles.length} rutor` + (missing ? ` (${missing} saknades)` : ''), 4000);
+  lpPage = 0; applyTileSize(); UI.build(); AudioL.preload(); Sync.schedule();
+  toast(`${S.tiles.length} rutor i ${S.groups.length} grupper lästes in.` + (missing ? ` ${missing} ljud saknades i backupen.` : ''), 4500);
 }
 $('#fileImport').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
-    const buf = await f.arrayBuffer(); const head = new Uint8Array(buf, 0, 2);
-    let res;
-    if (head[0] === 0x50 && head[1] === 0x4B) res = await importSadj(await readZip(buf));
-    else res = await importOwn(JSON.parse(new TextDecoder().decode(buf)));
-    if (S.tiles.length && !confirm(`Ersätta nuvarande upplägg med backupen (${res.st.groups.length} grupper, ${res.st.tiles.length} rutor)?`)) return;
+    const buf = await f.arrayBuffer(), head = new Uint8Array(buf, 0, 2);
+    const res = head[0] === 0x50 && head[1] === 0x4B ? await importSadj(await readZip(buf)) : await importOwn(JSON.parse(new TextDecoder().decode(buf)));
+    if (S.tiles.length && !confirm(`Ersätta dina ${S.tiles.length} rutor med backupens ${res.st.tiles.length}?`)) return;
     await applyImport(res); closeSheet();
-  } catch (err) { console.error(err); toast('Import misslyckades: ' + err.message, 5000); }
+  } catch (err) { console.error(err); toast('Backupen gick inte att läsa in: ' + (err instanceof SyntaxError ? 'filen är inte en backup' : err.message) + '.', 6000); }
 };
 async function exportBackup() {
-  const audio = {}; const ids = new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId));
-  for (const id of ids) { const b = await DB.get('audio', id); if (b) audio[id] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); }
-  const blob = new Blob([JSON.stringify({ app: 'matchljud', exported: new Date().toISOString(), state: S, audio })], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'matchljud-backup-' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
+  const audio = {};
+  for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {
+    const b = await DB.get('audio', id);
+    if (b) audio[id] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'matchljud', exported: new Date().toISOString(), state: S, audio })], { type: 'application/json' }));
+  a.download = 'matchljud-backup-' + new Date().toISOString().slice(0, 10) + '.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
+// Sound files nobody uses any more (deleted tiles) are cleaned out on the next start, so Undo keeps working until then.
+async function cleanAudio() {
+  try { const used = new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId)); for (const k of await DB.keys('audio')) if (!used.has(k)) await DB.del('audio', k); } catch (e) {}
+}
 
-/* ---------------- sync between devices (private GitHub repo) ---------------- */
+/* ---------------- sync between devices (a private GitHub repo holds setup.json and the sound files) ---------------- */
 const Sync = {
-  get repo() { return localStorage.getItem('sy_repo') || ''; }, set repo(v) { localStorage.setItem('sy_repo', v.trim().replace(/^https:\/\/github.com\//, '').replace(/\/$/, '')); },
-  get token() { return localStorage.getItem('sy_tok') || ''; }, set token(v) { localStorage.setItem('sy_tok', v.trim()); },
+  get repo() { return localStorage.getItem('sy_repo') || ''; },
+  set repo(v) { localStorage.setItem('sy_repo', v.trim().replace(/^https:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '')); },
+  get token() { return localStorage.getItem('sy_tok') || ''; },
+  set token(v) { localStorage.setItem('sy_tok', v.trim()); },
   get on() { return !!(this.repo && this.token); },
-  status: '', timer: null, busy: false, applying: false,
+  status: '', timer: 0, busy: false, applying: false,
   hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); },
+  // What travels between devices. Played marks, tile size and MIDI ports stay on each device.
   shared() {
     const st = S.settings;
-    return { app: 'matchljud', version: 1, spClient: SP.clientId, groups: S.groups,
-      tiles: S.tiles.map(({ played, ...r }) => r),
+    return { app: 'matchljud', version: 2, spClient: SP.clientId, groups: S.groups, tiles: S.tiles.map(({ played, ...r }) => r),
       settings: { fadeOut: st.fadeOut, fadeIn: st.fadeIn, musicVol: st.musicVol, sfxVol: st.sfxVol, markPlayed: st.markPlayed, keepAlive: st.keepAlive, silentUri: st.silentUri } };
   },
   localHash() { return this.hash(JSON.stringify(this.shared())); },
   setStatus(m) { this.status = m; const el = $('#syStat'); if (el) el.textContent = m; },
-  async gh(path, opt = {}, raw) {
-    const r = await fetch('https://api.github.com/repos/' + this.repo + '/contents/' + path, { ...opt, cache: 'no-store',
-      headers: { Authorization: 'Bearer ' + this.token, Accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opt.headers || {}) } });
-    return r;
+  explain(e) { return /^(401|403|404)$/.test(e.message) ? (e.message === '401' ? 'Nyckeln godkändes inte.' : 'Nyckeln kommer inte åt repot. Kontrollera repo-namnet och att nyckeln får läsa och skriva.') : /^\d+$/.test(e.message) ? 'GitHub svarade med fel ' + e.message + '.' : 'Ingen kontakt med GitHub. Försöker igen senare.'; },
+  async gh(path, opt = {}, raw, ms = 12000) {
+    const ac = new AbortController(); const timer = setTimeout(() => ac.abort(), ms);
+    try {
+      return await fetch('https://api.github.com/repos/' + this.repo + '/contents/' + path, { ...opt, cache: 'no-store', signal: ac.signal,
+        headers: { Authorization: 'Bearer ' + this.token, Accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opt.headers || {}) } });
+    } finally { clearTimeout(timer); }
   },
   b64enc(str) { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); },
-  b64dec(b64) { const bin = atob(b64.replace(/\n/g, '')); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder().decode(u); },
+  b64dec(b64) { const bin = atob(b64.replace(/\s/g, '')); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder().decode(u); },
   schedule() { if (!this.on || this.applying) return; clearTimeout(this.timer); this.timer = setTimeout(() => this.push(), 4000); },
   async pull(manual) {
-    if (!this.on || this.busy) return; this.busy = true;
+    if (!this.on || this.busy) return;
+    if (!manual && (sheetOpen() || moving)) return;   // never swap the setup under someone who is editing
+    this.busy = true;
     try {
       this.setStatus('Hämtar…');
       const r = await this.gh('setup.json');
-      if (r.status === 404) { this.busy = false; this.setStatus('Ingen sparad setup än — laddar upp'); return this.push(true); }
-      if (!r.ok) throw new Error(r.status === 401 ? 'fel token' : r.status === 403 ? 'token saknar behörighet' : 'GitHub ' + r.status);
+      if (r.status === 404) { this.busy = false; return this.push(true); }
+      if (!r.ok) throw new Error(String(r.status));
       const j = await r.json();
       const dirty = this.localHash() !== localStorage.getItem('sy_hash');
-      if (j.sha === localStorage.getItem('sy_sha')) { this.busy = false; if (dirty) return this.push(); this.setStatus('Synkad ✓'); return; }
-      if (dirty && S.tiles.length && !confirm('Din setup har ändrats på en annan enhet, och även här.\n\nOK = hämta den andra enhetens version (ändringar här skrivs över)\nAvbryt = behåll den här och skriv över den andra')) {
+      if (j.sha === localStorage.getItem('sy_sha')) { this.busy = false; if (dirty) return this.push(); this.setStatus('Synkad'); return; }
+      if (dirty && S.tiles.length && !confirm('Upplägget har ändrats både här och på en annan enhet.\n\nOK: hämta den andra enhetens version. Ändringarna här försvinner.\nAvbryt: behåll den här versionen och skriv över den andra.')) {
         localStorage.setItem('sy_sha', j.sha); this.busy = false; return this.push(true);
       }
       await this.apply(JSON.parse(this.b64dec(j.content)), j.sha);
-      this.setStatus('Synkad ✓ (hämtade ändringar)');
-      if (!manual) toast('Setup synkad från din andra enhet');
-    } catch (e) { console.warn(e); this.setStatus('Synk-fel: ' + e.message); if (manual) toast('Synk-fel: ' + e.message, 4000); }
+      this.setStatus('Synkad');
+      toast('Upplägget hämtades från din andra enhet.');
+    } catch (e) { console.warn(e); this.setStatus(this.explain(e)); if (manual) toast(this.explain(e), 5000); }
     this.busy = false;
   },
   async apply(rem, sha) {
     this.applying = true;
-    const played = new Map(S.tiles.map(t => [t.id, t.played]));
-    S.groups = rem.groups || S.groups;
-    S.tiles = (rem.tiles || []).map(t => ({ ...t, played: !!played.get(t.id) }));
-    S.settings = { ...S.settings, ...(rem.settings || {}) };
-    if (rem.spClient && !SP.clientId) SP.clientId = rem.spClient;
-    if (!group(S.curGroup)) S.curGroup = S.groups[0] && S.groups[0].id;
-    // fetch sound files this device doesn't have yet
-    const have = new Set(await DB.keys('audio'));
-    const up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
-    for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {
-      up.add(id); // exists remotely
-      if (have.has(id)) continue;
-      const r = await this.gh('audio/' + id, {}, true); if (r.ok) { await DB.put('audio', id, await r.blob()); AudioL.buffers.delete(id); }
-    }
-    localStorage.setItem('sy_audio', JSON.stringify([...up]));
-    await DB.put('kv', 'state', S);
-    localStorage.setItem('sy_sha', sha); localStorage.setItem('sy_hash', this.localHash());
-    renderAllTiles(); LP.paintAll(); AudioL.preload();
-    this.applying = false;
+    try {
+      const played = new Map(S.tiles.map(t => [t.id, t.played]));
+      S.groups = Array.isArray(rem.groups) && rem.groups.length ? rem.groups : S.groups;
+      S.tiles = (rem.tiles || []).map(t => ({ ...t, played: !!played.get(t.id) }));
+      S.settings = { ...S.settings, ...(rem.settings || {}) };
+      if (rem.spClient && !SP.clientId) SP.clientId = rem.spClient;
+      if (!group(S.curGroup)) S.curGroup = S.groups[0].id;
+      if (Engine.cur) { const nt = tile(Engine.cur.tile.id); if (nt) Engine.cur.tile = nt; }
+      const have = new Set(await DB.keys('audio')), up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
+      for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {   // fetch sounds this device lacks
+        up.add(id); if (have.has(id)) continue;
+        const r = await this.gh('audio/' + id, {}, true, 60000); if (r.ok) { await DB.put('audio', id, await r.blob()); AudioL.buffers.delete(id); }
+      }
+      localStorage.setItem('sy_audio', JSON.stringify([...up]));
+      await DB.put('kv', 'state', S);
+      localStorage.setItem('sy_sha', sha); localStorage.setItem('sy_hash', this.localHash());
+      UI.build(); AudioL.preload();
+    } finally { this.applying = false; }
   },
   async push(force) {
     if (!this.on || this.busy) return;
     const h = this.localHash(); if (!force && h === localStorage.getItem('sy_hash')) return;
     this.busy = true; this.setStatus('Sparar…');
     try {
-      // sound files first (only ones not uploaded before)
       const up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
-      for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {
+      for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {   // new sound files first
         if (up.has(id)) continue; const b = await DB.get('audio', id); if (!b) continue;
         const data = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(b); });
-        const r = await this.gh('audio/' + id, { method: 'PUT', body: JSON.stringify({ message: 'ljud ' + id, content: data }) });
-        if (r.ok || r.status === 422 || r.status === 409) up.add(id); else throw new Error('ljuduppladdning ' + r.status);
-        localStorage.setItem('sy_audio', JSON.stringify([...up]));
+        const r = await this.gh('audio/' + id, { method: 'PUT', body: JSON.stringify({ message: 'ljud ' + id, content: data }) }, false, 90000);
+        if (!(r.ok || r.status === 422 || r.status === 409)) throw new Error(String(r.status));   // 422/409: it is already there
+        up.add(id); localStorage.setItem('sy_audio', JSON.stringify([...up]));
       }
       const body = { message: 'setup ' + new Date().toISOString(), content: this.b64enc(JSON.stringify(this.shared(), null, 1)) };
       const sha = localStorage.getItem('sy_sha'); if (sha) body.sha = sha;
-      const r = await this.gh('setup.json', { method: 'PUT', body: JSON.stringify(body) });
-      if (r.status === 409 || r.status === 422) { this.busy = false; localStorage.removeItem('sy_hash'); return this.pull(true); } // someone else saved first
-      if (!r.ok) throw new Error(r.status === 401 ? 'fel token' : r.status === 403 || r.status === 404 ? 'token saknar skrivbehörighet' : 'GitHub ' + r.status);
+      const r = await this.gh('setup.json', { method: 'PUT', body: JSON.stringify(body) }, false, 30000);
+      if (r.status === 409 || r.status === 422) { this.busy = false; localStorage.removeItem('sy_hash'); return this.pull(true); }   // another device saved first
+      if (!r.ok) throw new Error(String(r.status));
       const j = await r.json(); localStorage.setItem('sy_sha', j.content.sha); localStorage.setItem('sy_hash', h);
-      this.setStatus('Synkad ✓');
-    } catch (e) { console.warn(e); this.setStatus('Synk-fel: ' + e.message); }
+      this.setStatus('Synkad');
+    } catch (e) { console.warn(e); this.setStatus(this.explain(e)); }
     this.busy = false;
   },
 };
 
-/* ---------------- wake lock ---------------- */
+/* ---------------- the back button ----------------
+   On a phone, Back (or a stray swipe from the screen edge) would close the app and kill the music.
+   Instead it closes whatever is open, and leaving takes two presses. */
+const Back = {
+  on: false, asked: 0,
+  arm() {   // must happen after a real tap: Chrome ignores history entries a page adds on its own
+    if (this.on || !(matchMedia('(display-mode: standalone)').matches || matchMedia('(pointer: coarse)').matches)) return;
+    this.on = true; history.pushState({ guard: 1 }, '');
+    window.addEventListener('popstate', () => this.pressed());
+  },
+  pressed() {
+    if (sheetOpen()) closeSheet();
+    else if (moving) endMove();
+    else if (searchQ !== null) closeSearch();
+    else if (editMode) $('#btnEdit').click();
+    else if (Date.now() - this.asked < 2500) return history.back();
+    else { this.asked = Date.now(); toast('Tryck tillbaka en gång till för att stänga appen.'); }
+    history.pushState({ guard: 1 }, '');
+  },
+};
+
+/* ---------------- new versions ----------------
+   The app starts from its cached copy and the service worker fetches the newest one in the background.
+   If that turned out to be different, offer a reload. Never reload by itself: there may be a match on. */
+const Update = {
+  told: false, last: 0,
+  async check() {
+    try {
+      const note = await (await caches.open('matchljud-app')).match(new URL('__update', location.origin + location.pathname.replace(/index\.html$/, '')).href);
+      if (!note || this.told || !(+(await note.text()) > performance.timeOrigin)) return;
+      this.told = true;
+      toast('En ny version av Matchljud är hämtad.', { action: 'Ladda om', onAction: () => location.reload(), ms: 20000 });
+    } catch (e) {}
+  },
+  // An installed app can stay open for days: look for a new version when it comes back to the front.
+  poke() { if (!navigator.serviceWorker || !navigator.serviceWorker.controller || Date.now() - this.last < 30 * 60 * 1000) return; this.last = Date.now(); fetch('./').catch(() => {}); setTimeout(() => this.check(), 4000); },
+};
+
+/* ---------------- keep the screen on ---------------- */
 let wakeLock = null;
 async function wake() {
   try {
-    if (S.settings.keepAwake && 'wakeLock' in navigator && document.visibilityState === 'visible') { if (!wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => wakeLock = null); } }
-    else if (!S.settings.keepAwake && wakeLock) { await wakeLock.release(); wakeLock = null; }
+    if (S.settings.keepAwake && 'wakeLock' in navigator && document.visibilityState === 'visible') {
+      if (!wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    } else if (!S.settings.keepAwake && wakeLock) { await wakeLock.release(); wakeLock = null; }
   } catch (e) {}
 }
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wake(); if (LP.connected) LP.paintAll(); Sync.pull(false); } });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  wake(); if (LP.connected) { LP.programmerMode(); LP.render(); }
+  Sync.pull(false); Update.poke();
+});
+window.addEventListener('pagehide', () => { if (LP.connected) LP.liveMode(); });   // hand the Launchpad back when the app closes
+window.addEventListener('pageshow', e => { if (e.persisted && LP.connected) { LP.programmerMode(); LP.render(); } });
 
-/* ---------------- boot ---------------- */
+/* ---------------- start ---------------- */
 (async function boot() {
   await DB.open();
   const saved = await DB.get('kv', 'state');
-  if (saved && saved.groups) S = { ...defaultState(), ...saved, settings: { ...defaultState().settings, ...saved.settings } };
-  if (!S.curGroup || !group(S.curGroup)) S.curGroup = S.groups[0] && S.groups[0].id;
-  renderAllTiles(); renderNow(); renderStatus();
-  try { await SP.handleRedirect(); } catch (e) { toast('Spotify: ' + e.message, 5000); }
-  await Sync.pull(false);
+  if (saved && Array.isArray(saved.groups) && saved.groups.length) S = { ...defaultState(), ...saved, settings: { ...defaultState().settings, ...saved.settings } };
+  if (!group(S.curGroup)) S.curGroup = S.groups[0].id;
+  applyTileSize(); UI.build(); renderStatus();
+  // Browsers only allow sound after a real tap or key press; these are the events that count as one.
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, () => { SP.activate(); AudioL.ensure(); wake(); if (ev !== 'pointerdown') Back.arm(); }, { capture: true, passive: true });
+  try { await SP.handleRedirect(); } catch (e) { toast('Spotify-inloggningen misslyckades: ' + e.message, 6000); }
+  UI.build(); renderStatus();
   if (SP.loggedIn) SP.initPlayer();
   LP.connect(false);
   AudioL.preload(); wake();
-  document.addEventListener('pointerdown', () => { SP.activate(); AudioL.ensure(); wake(); }, { capture: true, passive: true });
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  cleanAudio().then(() => Sync.pull(false));   // in the background: a slow network must never delay the player
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    Update.last = Date.now(); setTimeout(() => Update.check(), 3000);
+  }
 })();
 </script>
 </body>
