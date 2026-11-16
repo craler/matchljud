@@ -256,7 +256,7 @@ ul.legend b{color:var(--text);font-weight:600}
 </div></div>
 <div id="toast" role="status"></div>
 <input type="file" id="fileImport" hidden>
-<input type="file" id="fileAudio" accept="audio/*" multiple hidden>
+<input type="file" id="fileAudio" multiple hidden>
 
 <script>
 'use strict';
@@ -264,7 +264,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.0';
+const VERSION = '2.1';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -284,6 +284,13 @@ const TILE_PX = { s: 84, m: 108, l: 150 };
 const SCOPES = 'streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state playlist-read-private playlist-read-collaborative user-library-read';
 const SILENT_URI = 'spotify:track:3mkOlbSv5RYadx0JsjTrKq';
 const QUICK = 0.5;   // seconds: how fast a playing song gives way to the next one
+
+// iPhone and iPad: only the hardware buttons may change the sound level. A page cannot fade or lower
+// Spotify there (its own Web Audio sounds are fine), so Spotify songs start and stop without fades.
+const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Mac/.test(navigator.platform || '') && navigator.maxTouchPoints > 1);
+const VOLUME_LOCKED = IOS;
+const noFade = t => VOLUME_LOCKED && !!t && t.kind === 'spotify';
+let gesture = false;   // set by the first real tap or key press
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -367,7 +374,11 @@ const renumber = gid => tilesOf(gid).forEach((t, i) => { t.order = i; });
 function horns() { const out = []; for (const g of S.groups) for (const t of tilesOf(g.id)) if (!isMusic(t) && out.length < 8) out.push(t); return out; }
 function gridTiles(gid) { const h = new Set(horns().map(t => t.id)); return tilesOf(gid).filter(t => !h.has(t.id)); }
 const sheetOpen = () => $('#scrim').classList.contains('open');
-const soundLocked = () => !(navigator.userActivation ? navigator.userActivation.hasBeenActive : SP.activated);
+const soundLocked = () => !(navigator.userActivation ? navigator.userActivation.hasBeenActive : gesture);
+
+// Sound files: stored as bytes. Older versions stored Blobs, so both are read.
+async function audioBytes(id) { const rec = await DB.get('audio', id); return !rec ? null : rec instanceof ArrayBuffer ? rec : await rec.arrayBuffer(); }
+function bytesToB64(ab) { const b = new Uint8Array(ab); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
 
 /* ---------------- Spotify: login (PKCE) and the in-browser player ---------------- */
 const SP = {
@@ -483,6 +494,7 @@ const AudioL = {
   ctx: null, master: null, music: null, buffers: new Map(), voices: new Set(),
   ensure() {
     if (!this.ctx) {
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}   // iPhone: sound effects play even with the mute switch on
       this.ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
       this.master = this.ctx.createGain(); this.master.connect(this.ctx.destination);
       this.music = this.ctx.createGain(); this.music.connect(this.master);
@@ -492,8 +504,9 @@ const AudioL = {
   },
   async buffer(soundId) {
     if (this.buffers.has(soundId)) return this.buffers.get(soundId);
-    const blob = await DB.get('audio', soundId); if (!blob) throw new Error('Ljudfilen finns inte kvar på den här enheten.');
-    const buf = await this.ensure().decodeAudioData(await blob.arrayBuffer());
+    const bytes = await audioBytes(soundId); if (!bytes) throw new Error('Ljudfilen finns inte kvar på den här enheten.');
+    const ctx = this.ensure();
+    const buf = await new Promise((res, rej) => { const p = ctx.decodeAudioData(bytes.slice(0), res, rej); if (p && p.catch) p.catch(rej); });   // both the old and the new calling style
     this.buffers.set(soundId, buf); return buf;
   },
   preload() { new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId)).forEach(id => this.buffer(id).catch(() => {})); },
@@ -558,8 +571,8 @@ const Engine = {
   },
   vol(t) { return (t.volume >= 0 ? t.volume : 100) / 100 * (S.settings.musicVol / 100); },
   sfxVol(t) { return (t.volume >= 0 ? t.volume : 100) / 100 * (S.settings.sfxVol / 100); },
-  fadeOutSec(t) { return t && t.fadeOut >= 0 ? t.fadeOut : S.settings.fadeOut; },
-  fadeInSec(t) { return t && t.fadeIn >= 0 ? t.fadeIn : S.settings.fadeIn; },
+  fadeOutSec(t) { return noFade(t) ? 0 : t && t.fadeOut >= 0 ? t.fadeOut : S.settings.fadeOut; },
+  fadeInSec(t) { return noFade(t) ? 0 : t && t.fadeIn >= 0 ? t.fadeIn : S.settings.fadeIn; },
   endOf(c) { return c.tile.stop || c.dur || c.tile.duration || 0; },
   position() {
     const c = this.cur; if (!c) return 0;
@@ -637,6 +650,7 @@ const Engine = {
 
   // Make the music channel quiet: fade whatever is audible, then stop it.
   async silence(sec) {
+    if (VOLUME_LOCKED && !this.liveLocal) sec = 0;   // nothing here can be faded: stop at once rather than wait in vain
     if ((this.liveLocal || SP.sounding) && Mix.level > 0) await Mix.ramp(0, sec);
     const v = this.liveLocal;
     if (v) { this.liveLocal = null; v.src.onended = null; try { v.src.stop(); } catch (e) {} }
@@ -705,7 +719,7 @@ const Engine = {
     const c = this.cur;
     if (c && c.phase === 'playing' && !c.paused) {
       const t = c.tile, pos = this.position(), end = this.endOf(c);
-      const duck = this.inDrop(t, pos) ? 0 : 1;
+      const duck = !noFade(t) && this.inDrop(t, pos) ? 0 : 1;
       if (duck !== Mix.duck) { Mix.duck = duck; Mix.apply(); }
       if (end > 0) {
         if (c.loopsLeft) { if (pos >= end - (c.kind === 'spotify' && !t.stop ? 0.35 : 0.03)) this.loop(c); }
@@ -997,7 +1011,7 @@ const UI = {
     $('#tpTitle').textContent = c ? c.tile.title : 'Inget spelas';
     $('#tpSub').textContent = !c ? '' : nx ? 'Sedan: ' + nx.title : c.loopsLeft ? 'Loopar' : (c.tile.alt || c.tile.artist || '');
     $('#btnFade').disabled = !c; $('#btnRestart').disabled = !c;
-    $('#btnFade').textContent = c && (c.phase === 'fading' || c.phase === 'ending') ? 'Stopp' : 'Tona ut';
+    $('#btnFade').textContent = c && (c.phase === 'fading' || c.phase === 'ending') ? 'Stopp' : VOLUME_LOCKED && (!c || c.kind === 'spotify') ? 'Stoppa' : 'Tona ut';
     $('#btnRandom').setAttribute('aria-label', 'Slumpa en ospelad låt i ' + curGroup().name);
     if (sheetHook) sheetHook();
     LP.render();
@@ -1154,6 +1168,7 @@ function openTileEditor(t, keep) {
     <p class="hint">Spela rutan och tryck ”Start här” eller ”Stopp här” i rätt ögonblick.</p>` : ''}
 
     <h3 class="sec">Uppspelning</h3>
+    ${noFade(t) ? '<p class="hint">På iPhone och iPad startar och stoppar Spotify-låtar direkt. Apple låter bara volymknapparna ändra ljudnivån, så toning, volym och tystnad för allsång fungerar här bara för ljudfiler.</p>' : ''}
     ${music ? `<div class="field"><label for="eLoop">Loopa</label><select id="eLoop">${[[0, 'Nej'], [1, '1 gång till'], [2, '2 gånger till'], [3, '3 gånger till'], [5, '5 gånger till'], [-1, 'Tills jag stoppar']].map(([v, n]) => opt(v, n, t.loop || 0)).join('')}</select></div>
     ${lineHtml('Fortsätt med nästa ruta efteråt', 'eNext', t.next)}` : ''}
     ${t.kind === 'local' ? lineHtml('Ljudeffekt som spelas ovanpå musiken', 'eOver', t.overlay) : ''}
@@ -1323,7 +1338,7 @@ $('#fileAudio').onchange = async e => {
   for (const f of files) {
     const soundId = uid();
     try {
-      await DB.put('audio', soundId, f);
+      await DB.put('audio', soundId, await f.arrayBuffer());
       const buf = await AudioL.buffer(soundId);
       S.tiles.push({ id: uid(), groupId: gid, order: tilesOf(gid).length, kind: 'local', soundId, title: f.name.replace(/\.[^.]+$/, ''), alt: '', artist: '', duration: buf.duration, start: 0, stop: null, color: over ? 5 : 0, volume: -1, fadeIn: -1, fadeOut: -1, next: false, overlay: over, played: false });
       n++;
@@ -1428,6 +1443,7 @@ const Menu = {
   settings() {
     const st = S.settings, c = v => String(v).replace('.', ',');
     openSheet('Ljud och skärm', `
+      ${VOLUME_LOCKED ? '<p class="hint">På iPhone och iPad startar och stoppar Spotify-låtar direkt. Apple låter bara volymknapparna ändra ljudnivån, så toning, volym och tystnad för allsång fungerar här bara för ljudfiler.</p>' : ''}
       ${rangeHtml('sMv', 'Musikvolym', st.musicVol + ' %', st.musicVol, 0, 100, 5)}
       ${rangeHtml('sSv', 'Volym på ljudeffekter', st.sfxVol + ' %', st.sfxVol, 0, 100, 5)}
       ${rangeHtml('sFo', 'Tona ut', c(st.fadeOut) + ' s', st.fadeOut, 0, 10, 0.5)}
@@ -1512,7 +1528,7 @@ async function importSadj(files) {
       else {
         const fname = s.localFileName || (s.soundUUID + '.wav'); const key = Object.keys(files).find(n => n === fname || n.endsWith('/' + fname));
         if (!key || !files[key]) { missing++; return; }
-        t.kind = 'local'; t.soundId = s.soundUUID; t.overlay = true; t.next = false; t.loop = 0; audio[s.soundUUID] = new Blob([files[key]], { type: 'audio/wav' });
+        t.kind = 'local'; t.soundId = s.soundUUID; t.overlay = true; t.next = false; t.loop = 0; audio[s.soundUUID] = files[key].buffer;
       }
       st.tiles.push(t);
     });
@@ -1523,7 +1539,7 @@ async function importSadj(files) {
 }
 async function importOwn(j) {
   const st = j && j.state; if (!st || !Array.isArray(st.groups) || !st.groups.length) throw new Error('filen är inte en backup från Matchljud');
-  const audio = {}; for (const [k, v] of Object.entries(j.audio || {})) audio[k] = await (await fetch(v)).blob();
+  const audio = {}; for (const [k, v] of Object.entries(j.audio || {})) audio[k] = await (await fetch(v)).arrayBuffer();
   return { st: { ...defaultState(), ...st, settings: { ...defaultState().settings, ...st.settings } }, audio, missing: 0 };
 }
 async function applyImport({ st, audio, missing }) {
@@ -1545,8 +1561,8 @@ $('#fileImport').onchange = async e => {
 async function exportBackup() {
   const audio = {};
   for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {
-    const b = await DB.get('audio', id);
-    if (b) audio[id] = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+    const b = await audioBytes(id);
+    if (b) audio[id] = 'data:application/octet-stream;base64,' + bytesToB64(b);
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify({ app: 'matchljud', exported: new Date().toISOString(), state: S, audio })], { type: 'application/json' }));
@@ -1583,7 +1599,7 @@ const Sync = {
         headers: { Authorization: 'Bearer ' + this.token, Accept: raw ? 'application/vnd.github.raw' : 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', ...(opt.headers || {}) } });
     } finally { clearTimeout(timer); }
   },
-  b64enc(str) { const b = new TextEncoder().encode(str); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); },
+  b64enc(str) { return bytesToB64(new TextEncoder().encode(str).buffer); },
   b64dec(b64) { const bin = atob(b64.replace(/\s/g, '')); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new TextDecoder().decode(u); },
   schedule() { if (!this.on || this.applying) return; clearTimeout(this.timer); this.timer = setTimeout(() => this.push(), 4000); },
   async pull(manual) {
@@ -1620,7 +1636,7 @@ const Sync = {
       const have = new Set(await DB.keys('audio')), up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
       for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {   // fetch sounds this device lacks
         up.add(id); if (have.has(id)) continue;
-        const r = await this.gh('audio/' + id, {}, true, 60000); if (r.ok) { await DB.put('audio', id, await r.blob()); AudioL.buffers.delete(id); }
+        const r = await this.gh('audio/' + id, {}, true, 60000); if (r.ok) { await DB.put('audio', id, await r.arrayBuffer()); AudioL.buffers.delete(id); }
       }
       localStorage.setItem('sy_audio', JSON.stringify([...up]));
       await DB.put('kv', 'state', S);
@@ -1635,9 +1651,8 @@ const Sync = {
     try {
       const up = new Set(JSON.parse(localStorage.getItem('sy_audio') || '[]'));
       for (const id of new Set(S.tiles.filter(t => t.kind === 'local').map(t => t.soundId))) {   // new sound files first
-        if (up.has(id)) continue; const b = await DB.get('audio', id); if (!b) continue;
-        const data = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.readAsDataURL(b); });
-        const r = await this.gh('audio/' + id, { method: 'PUT', body: JSON.stringify({ message: 'ljud ' + id, content: data }) }, false, 90000);
+        if (up.has(id)) continue; const b = await audioBytes(id); if (!b) continue;
+        const r = await this.gh('audio/' + id, { method: 'PUT', body: JSON.stringify({ message: 'ljud ' + id, content: bytesToB64(b) }) }, false, 90000);
         if (!(r.ok || r.status === 422 || r.status === 409)) throw new Error(String(r.status));   // 422/409: it is already there
         up.add(id); localStorage.setItem('sy_audio', JSON.stringify([...up]));
       }
@@ -1716,7 +1731,7 @@ window.addEventListener('pageshow', e => { if (e.persisted && LP.connected) { LP
   if (!group(S.curGroup)) S.curGroup = S.groups[0].id;
   applyTileSize(); UI.build(); renderStatus();
   // Browsers only allow sound after a real tap or key press; these are the events that count as one.
-  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, () => { SP.activate(); AudioL.ensure(); wake(); if (ev !== 'pointerdown') Back.arm(); }, { capture: true, passive: true });
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, e => { if (ev !== 'pointerdown' || e.pointerType === 'mouse') gesture = true; SP.activate(); AudioL.ensure(); wake(); if (ev !== 'pointerdown') Back.arm(); }, { capture: true, passive: true });
   try { await SP.handleRedirect(); } catch (e) { toast('Spotify-inloggningen misslyckades: ' + e.message, 6000); }
   UI.build(); renderStatus();
   if (SP.loggedIn) SP.initPlayer();
