@@ -34,4 +34,3 @@ and, if you switch sync on, to your own GitHub repository.
 
 - `index.html` – the whole app
 - `sw.js` – offline start and background updates
-- `matchljud-cond.woff` – condensed display face, a renamed subset of TeX Gyre Heros Condensed Bold (see `FONT-LICENSE.txt`)

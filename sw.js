@@ -3,7 +3,7 @@
 // newest version in the background. When the page itself has changed, a time-stamped note
 // is left in the cache; the app reads it and offers a reload.
 const CACHE = 'matchljud-app';
-const FILES = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png', './matchljud-cond.woff'];
+const FILES = ['./', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
