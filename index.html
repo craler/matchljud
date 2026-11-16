@@ -88,6 +88,11 @@ kbd{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;v
 .tile.slot{background:none;color:var(--muted);box-shadow:inset 0 0 0 2px var(--line);align-items:center;justify-content:center;font-weight:600;text-align:center}
 @keyframes breathe{50%{filter:brightness(1.2)}}
 body.editing .tile[data-t],body.moving .tile[data-t]{outline:2px dashed #ffffffb0;outline-offset:-6px}
+/* drag to reorder (edit mode) */
+.drag-ghost{position:fixed;z-index:60;pointer-events:none;margin:0;opacity:.92;box-shadow:0 14px 34px #000c;transition:none}
+.tile.drop-before,.horn.drop-before{box-shadow:-6px 0 0 -1px #fff}
+.tile.drop-after,.horn.drop-after{box-shadow:6px 0 0 -1px #fff}
+body.dragging{cursor:grabbing}
 body.size-s .tile{padding:7px 8px 6px;border-radius:12px}
 body.size-s .tile-title{font-size:15px}
 body.size-s .tile-sub{display:none}
@@ -268,7 +273,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.2';
+const VERSION = '2.3';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -1111,6 +1116,80 @@ function placeTile(target) {
   if (from !== gid) renumber(from);
   save(); endMove();
 }
+/* ---------------- drag and drop (edit mode only, so nothing moves by accident during a match) ----------------
+   Touch: hold a tile a moment, then drag. Mouse: just drag. A plain tap still opens the tile's settings. */
+const Drag = {
+  st: null, droppedAt: -1e9,
+  get swallow() { return performance.now() - this.droppedAt < 120; },   // the click that fires with the drop is not a tap
+  down(e, el) {
+    if (!editMode || moving || searchQ !== null || e.button > 0) return;
+    const mouse = e.pointerType === 'mouse';
+    this.st = { el, id: el.dataset.t, horn: el.classList.contains('horn'), pid: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, mouse, active: false,
+      timer: mouse ? 0 : setTimeout(() => this.begin(), 230) };
+  },
+  move(e) {
+    const s = this.st; if (!s || e.pointerId !== s.pid) return;
+    s.cx = e.clientX; s.cy = e.clientY;
+    const d = Math.hypot(s.cx - s.x, s.cy - s.y);
+    if (!s.active) { if (s.mouse && d > 6) this.begin(); else if (!s.mouse && d > 10) this.end(false); return; }   // a quick finger move is a scroll
+    this.follow();
+  },
+  begin() {
+    const s = this.st; if (!s || s.active) return;
+    clearTimeout(s.timer); s.active = true;
+    const r = s.el.getBoundingClientRect();
+    const g = s.ghost = s.el.cloneNode(true);
+    g.classList.add('drag-ghost'); g.classList.remove('is-live', 'is-sounding');
+    Object.assign(g.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    s.ox = s.x - r.left; s.oy = s.y - r.top;
+    document.body.appendChild(g); document.body.classList.add('dragging'); s.el.classList.add('is-lifted');
+    if (navigator.vibrate) navigator.vibrate(10);
+    this.follow(); this.scroll();
+  },
+  follow() {
+    const s = this.st;
+    s.ghost.style.transform = `translate(${s.cx - s.x}px,${s.cy - s.y}px) scale(1.05)`;
+    const hit = document.elementFromPoint(s.cx, s.cy);
+    const el = hit && hit.closest(s.horn ? '#horns .horn' : '#grid .tile[data-t]');
+    let after = false;
+    if (el && el !== s.el) { const r = el.getBoundingClientRect(); after = s.cx > r.left + r.width / 2; }
+    if (s.target) s.target.classList.remove('drop-before', 'drop-after');
+    s.target = el && el !== s.el ? el : null; s.after = after;
+    if (s.target) s.target.classList.add(after ? 'drop-after' : 'drop-before');
+  },
+  scroll() {   // near the top or bottom edge, the grid scrolls by itself
+    const s = this.st; if (!s || !s.active) return;
+    if (!s.horn) {
+      const m = $('#main'), r = m.getBoundingClientRect(), edge = 70;
+      const v = s.cy < r.top + edge ? -(r.top + edge - s.cy) : s.cy > r.bottom - edge ? s.cy - (r.bottom - edge) : 0;
+      if (v) { m.scrollTop += clamp(v, -edge, edge) / 4; this.follow(); }
+    }
+    requestAnimationFrame(() => this.scroll());
+  },
+  end(drop) {
+    const s = this.st; if (!s) return; this.st = null; clearTimeout(s.timer);
+    if (!s.active) return;
+    this.droppedAt = performance.now();
+    s.ghost.remove(); document.body.classList.remove('dragging'); s.el.classList.remove('is-lifted');
+    if (s.target) s.target.classList.remove('drop-before', 'drop-after');
+    if (drop && s.target) reorder(tile(s.id), tile(s.target.dataset.t), s.after);
+  },
+};
+function reorder(t, target, after) {
+  if (!t || !target || t === target) return;
+  const from = t.groupId, gid = target.groupId;
+  const list = tilesOf(gid).filter(x => x !== t);
+  list.splice(list.indexOf(target) + (after ? 1 : 0), 0, t);
+  t.groupId = gid; list.forEach((x, k) => { x.order = k; });
+  if (from !== gid) renumber(from);
+  save(); UI.build();
+}
+document.addEventListener('pointermove', e => Drag.move(e), { passive: true });
+document.addEventListener('pointerup', () => Drag.end(true));
+document.addEventListener('pointercancel', () => Drag.end(false));
+// once a drag has started, the finger moves the tile, not the page
+document.addEventListener('touchmove', e => { if (Drag.st && Drag.st.active) e.preventDefault(); }, { passive: false });
+
 function endMove() { moving = null; $('#banner').hidden = true; UI.build(); }
 
 // Destructive changes are applied at once and can be taken back from the toast.
@@ -1138,9 +1217,10 @@ for (const root of [$('#grid'), $('#horns')]) {
   root.addEventListener('contextmenu', e => e.preventDefault());
 }
 $('#main').addEventListener('scroll', () => hold.cancel(), { passive: true });
-$('#grid').addEventListener('pointerdown', e => { hold.fired = false; const el = e.target.closest('.tile[data-t]'); if (el && !moving && !editMode) hold.start(e, el.dataset.t); });
+$('#grid').addEventListener('pointerdown', e => { hold.fired = false; const el = e.target.closest('.tile[data-t]'); if (!el) return; if (editMode) Drag.down(e, el); else if (!moving) hold.start(e, el.dataset.t); });
 $('#grid').addEventListener('click', e => {
   if (hold.fired) { hold.fired = false; return; }
+  if (Drag.swallow) return;
   const act = e.target.closest('[data-act]');
   if (act) return act.dataset.act === 'add' ? openAdd() : openMenu(act.dataset.act);
   const el = e.target.closest('.tile'); if (!el) return;
@@ -1154,12 +1234,14 @@ function hornTap(t) { if (moving) placeTile(t); else if (editMode) openTileEdito
 $('#horns').addEventListener('pointerdown', e => {
   hold.fired = false;
   const el = e.target.closest('.horn'); const t = el && tile(el.dataset.t); if (!t) return;
-  if (soundLocked() && !moving && !editMode) { hornDown = false; return; }
+  if (editMode) { hornDown = false; Drag.down(e, el); return; }   // edit mode: tap opens settings on click, hold drags
+  if (soundLocked() && !moving) { hornDown = false; return; }
   hornDown = true; hornTap(t);
   if (!moving && !editMode) hold.start(e, t.id);
 });
 $('#horns').addEventListener('click', e => {
   if (hornDown) { hornDown = false; return; }   // already handled on touch-down; this path is for keyboards
+  if (Drag.swallow) return;
   const el = e.target.closest('.horn'); const t = el && tile(el.dataset.t); if (t) hornTap(t);
 });
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (b) selectGroup(b.dataset.g); });
@@ -1171,7 +1253,7 @@ $('#q').oninput = e => { searchQ = e.target.value; UI.build(); };
 $('#q').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
 $('#btnEdit').onclick = () => {
   editMode = !editMode; $('#btnEdit').setAttribute('aria-pressed', String(editMode)); UI.build();
-  toast(editMode ? 'Redigeringsläge: tryck på en ruta för att ändra den.' : 'Spelläge.');
+  toast(editMode ? 'Redigeringsläge: tryck på en ruta för att ändra den, eller håll och dra den för att flytta.' : 'Spelläge.');
 };
 $('#btnFade').onclick = () => Engine.fadeOut();
 $('#btnRestart').onclick = () => Engine.restart();
