@@ -51,6 +51,12 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
 #status .msg{display:none}
 #banner{grid-area:note;display:flex;align-items:center;gap:10px;margin:0 10px 8px;padding:8px 8px 8px 14px;border-radius:12px;background:var(--text);color:var(--chassis);font-weight:600}
 #banner span{flex:1}
+#brush{grid-area:note;display:flex;align-items:flex-start;gap:8px;margin:0 10px 8px;padding:8px;border-radius:14px;background:var(--deck);border:1px solid var(--line)}
+.brush-tools{flex:1;display:flex;flex-wrap:wrap;gap:6px}
+.brush-tools .swatch{width:34px;height:34px;border-radius:9px}
+.brush-tools .btn{min-height:34px;padding:0 10px;font-size:13px}
+.brush-tools .btn[aria-pressed=true]{background:var(--text);color:var(--chassis)}
+body.painting .tile[data-t],body.painting .horn{touch-action:none;cursor:crosshair}
 #banner .btn{background:var(--chassis);color:var(--text)}
 
 /* tile grid */
@@ -78,8 +84,9 @@ kbd{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;v
 .tile-drain{position:absolute;inset:0;z-index:-1;background:#0000004d;transform-origin:left;transform:scaleX(0);pointer-events:none}
 /* played = lamp off: dark pad, colour only on the edge, title still fully readable */
 /* played = lamp off: a dark pad with only a trace of its colour, title still readable */
-.tile.is-played{background:radial-gradient(120% 90% at 50% 30%,color-mix(in srgb,var(--pad) 30%,#2a2d35),color-mix(in srgb,var(--pad) 14%,#1d1f25));color:#D3D6DE;box-shadow:inset 0 1px 0 #ffffff14,inset 0 -3px 0 #00000059,inset 0 0 0 1px color-mix(in srgb,var(--pad) 40%,transparent)}
-.tile.is-played .tile-sub{opacity:.65}
+.tile.is-played{background:color-mix(in srgb,var(--pad) 8%,#141619);color:#ffffff66;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pad) 24%,transparent)}
+.tile.is-played::after{opacity:.15}
+.tile.is-played .tile-sub{opacity:.7}
 /* the one thing that moves: the playing pad drains like a game clock */
 /* playing = full brightness, a white rim and a halo that breathes */
 .tile.is-live{z-index:1;filter:brightness(1.12) saturate(1.1);animation:breathe 1.6s ease-in-out infinite;
@@ -98,6 +105,17 @@ body.editing .tile[data-t],body.moving .tile[data-t]{outline:2px dashed #ffffffb
 .tile.drop-before,.horn.drop-before{box-shadow:-6px 0 0 -1px #fff}
 .tile.drop-after,.horn.drop-after{box-shadow:6px 0 0 -1px #fff}
 body.dragging{cursor:grabbing}
+/* "Som Launchpad": 8 pads per row, 7 rows per page, exactly as on the device */
+body.lp-layout #grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
+body.lp-layout .tile{padding:5px 5px 4px;border-radius:8px}
+body.lp-layout .tile-title{font-size:clamp(9px,1.25vw,15px);line-height:1.12;-webkit-line-clamp:4;letter-spacing:0;overflow-wrap:break-word;hyphens:auto}
+body.lp-layout .tile-sub,body.lp-layout .tile-flags,body.lp-layout .tile-key{display:none}
+body.lp-layout .tile-time,body.lp-layout .tile.is-live .tile-time{font-size:clamp(9px,1.1vw,14px)}
+.lp-page{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:8px 0 1px;color:var(--muted);font-size:13px;font-weight:600;text-align:left}
+.lp-page:first-child{margin-top:0}
+.lp-page b{color:var(--text)}
+.lp-page::after{content:"";flex:1;height:1px;background:var(--line)}
+.lp-page.is-cur{color:var(--ok)}
 body.size-s .tile{padding:7px 8px 6px;border-radius:12px}
 body.size-s .tile-title{font-size:13px}
 body.size-s .tile-sub{display:none}
@@ -242,9 +260,11 @@ ul.legend b{color:var(--text);font-weight:600}
   <input id="q" type="search" placeholder="Sök bland alla låtar" aria-label="Sök bland alla låtar" autocomplete="off" enterkeyhint="search" hidden>
   <button id="status" aria-label="Anslutningar"></button>
   <button class="iconbtn" id="btnSearch" aria-label="Sök" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
+  <button class="iconbtn" id="btnBrush" aria-label="Måla rutor" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5 19.5 9.5 11 18l-5-5z"/><path d="M6 13c-2 0-3 1.5-3 3.5S2 20 2 20s4 .5 5.5-1 1.5-3 1.5-3"/></svg></button>
   <button class="iconbtn" id="btnEdit" aria-label="Redigera rutor" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
   <button class="iconbtn" id="btnAdd" aria-label="Lägg till låtar och ljud"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 </header>
+<div id="brush" hidden><div class="brush-tools"></div><button class="btn small primary" id="brushDone">Klar</button></div>
 <div id="banner" hidden><span></span><button class="btn small">Avbryt</button></div>
 <main id="main"><div id="grid"></div></main>
 <aside id="deck">
@@ -280,7 +300,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.5';
+const VERSION = '2.6';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -366,7 +386,7 @@ const DB = {
 /* ---------------- state ---------------- */
 const defaultState = () => ({
   version: 2,
-  settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, keepAlive: true, silentUri: SILENT_URI, lpIn: '', lpOut: '', tileSize: 'm' },
+  settings: { fadeOut: 2, fadeIn: 0, musicVol: 100, sfxVol: 100, markPlayed: true, keepAwake: true, keepAlive: true, silentUri: SILENT_URI, lpIn: '', lpOut: '', tileSize: 'm', layout: 'free' },
   groups: [{ id: uid(), name: 'Match' }],
   tiles: [],
   binds: {},   // action id -> list of trigger keys (keypad keys, MIDI buttons)
@@ -860,6 +880,7 @@ const Trig = {
     const hit = this.find(key); if (!hit) return false;
     if (hit.action) hit.action.run();
     else if (hit.group) Engine.random(hit.group.id);
+    else if (Brush.on) Brush.one(hit.tile);
     else if (editMode) openTileEditor(hit.tile);
     else Engine.trigger(hit.tile);
     return true;
@@ -949,11 +970,14 @@ const LP = {
   index(note) { const r = Math.floor(note / 10), c = note % 10; return (r < 2 || r > 8 || c < 1 || c > 8) ? -1 : (8 - r) * 8 + (c - 1); },
   list() { const g = curGroup(); return g ? gridTiles(g.id) : []; },
   page() { const all = this.list(); const pages = Math.max(1, Math.ceil(all.length / 56)); lpPage = clamp(lpPage, 0, pages - 1); return { list: all.slice(lpPage * 56, lpPage * 56 + 56), pages }; },
-  led(t) {   // [lighting type, palette colour]: 0 = steady, 2 = pulsing
+  led(t) {   // [0, palette] steady, [2, palette] pulsing, [3, r, g, b] exact colour
     const col = pad(t).lp;
     if (Engine.cur && Engine.cur.tile.id === t.id) return [2, col[0]];
     if (Engine.sfx.has(t.id)) return [0, 3];
-    return [0, t.played && isMusic(t) ? col[1] : col[0]];
+    if (!(t.played && isMusic(t))) return [0, col[0]];
+    if (!(this.access && this.access.sysexEnabled)) return [0, col[1]];
+    const hex = pad(t).bg, ch = [1, 3, 5].map(k => parseInt(hex.substr(k, 2), 16));
+    return [3, ...ch.map(v => (v ? Math.max(1, Math.round(v / 255 * 127 * 0.07)) : 0))];   // barely on
   },
   groupLed(g) { const music = tilesOf(g.id).filter(isMusic); if (!music.length) return 1; const left = music.some(t => !t.played); return g === curGroup() ? (left ? 21 : 9) : (left ? 23 : 11); },
   frame() {
@@ -978,12 +1002,12 @@ const LP = {
     for (let i = 11; i <= 99; i++) {
       if (i % 10 === 0) continue;
       const want = f[i] || [0, 0], had = this.last[i];
-      if (!had || had[0] !== want[0] || had[1] !== want[1]) { changed.push([i, want]); this.last[i] = want; }
+      if (!had || had.join() !== want.join()) { changed.push([i, want]); this.last[i] = want; }
     }
     if (!changed.length) return;
     if (this.access && this.access.sysexEnabled) {   // one message lights any LED, pad or button
       const msg = [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x03];
-      changed.forEach(([i, w]) => msg.push(w[0], i, w[1])); msg.push(0xF7); this.send(msg);
+      changed.forEach(([i, w]) => msg.push(w[0], i, ...w.slice(1))); msg.push(0xF7); this.send(msg);
     } else {
       changed.forEach(([i, w]) => { const btn = i > 90 || i % 10 === 9; if (w[0] === 2) this.send([btn ? 0xB0 : 0x90, i, 0]); this.send([(btn ? 0xB0 : 0x90) + w[0], i, w[1]]); });
     }
@@ -993,11 +1017,11 @@ const LP = {
     if (type === 0x90) {
       const t = (a >= 11 && a <= 18) ? horns()[a - 11] : this.page().list[this.index(a)];
       if (!t) return;
-      if (editMode) openTileEditor(t); else Engine.trigger(t);
+      if (Brush.on) Brush.one(t); else if (editMode) openTileEditor(t); else Engine.trigger(t);
     } else if (type === 0xB0) {
       const gi = S.groups.indexOf(curGroup());
-      if (a === 91) { if (lpPage > 0) { lpPage--; UI.build(); } }
-      else if (a === 92) { if (lpPage < this.page().pages - 1) { lpPage++; UI.build(); } }
+      if (a === 91) { if (lpPage > 0) { lpPage--; UI.build(); showLpPage(); } }
+      else if (a === 92) { if (lpPage < this.page().pages - 1) { lpPage++; UI.build(); showLpPage(); } }
       else if (a === 93) { if (gi > 0) selectGroup(S.groups[gi - 1].id); }
       else if (a === 94) { if (gi < S.groups.length - 1) selectGroup(S.groups[gi + 1].id); }
       else if (a === 95 || a === 19) Engine.fadeOut();
@@ -1050,7 +1074,11 @@ const UI = {
     let list;
     if (searching) { const q = searchQ.trim().toLowerCase(); list = q ? S.tiles.filter(t => isMusic(t) && [t.title, t.alt, t.artist].join(' ').toLowerCase().includes(q)).slice(0, 90) : []; }
     else list = gridTiles(g.id);
-    let html = list.map(t => tileHtml(t, searching)).join('');
+    const lpView = S.settings.layout === 'lp' && !searching;
+    document.body.classList.toggle('lp-layout', lpView);
+    let html = lpView
+      ? list.map((t, i) => (i % 56 ? '' : `<button class="lp-page${Math.floor(i / 56) === lpPage ? ' is-cur' : ''}" data-lppage="${i / 56}"><b>Sida ${i / 56 + 1}</b>${Math.floor(i / 56) === lpPage && LP.connected ? 'visas på Launchpad' : list.length > 56 ? '▲ ▼ på Launchpad' : ''}</button>`) + tileHtml(t, false)).join('')
+      : list.map(t => tileHtml(t, searching)).join('');
     if (moving && !searching) html += '<button class="tile slot" data-end="1">Lägg sist</button>';
     else if (!list.length) html = emptyHtml(searching);
     $('#grid').innerHTML = html;
@@ -1101,6 +1129,7 @@ const UI = {
     if (el) { $('.tile-time', el).textContent = left; $('.tile-drain', el).style.transform = `scaleX(${k})`; }
   },
 };
+function showLpPage() { const h = $('#grid .lp-page.is-cur'); if (h) h.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
 function selectGroup(id) { S.curGroup = id; lpPage = 0; save(); $('#main').scrollTop = 0; if (searchQ !== null) closeSearch(); else UI.build(); }
 function applyTileSize() { const s = TILE_PX[S.settings.tileSize] ? S.settings.tileSize : 'm'; document.documentElement.style.setProperty('--tile', TILE_PX[s] + 'px'); document.body.classList.remove('size-s', 'size-m', 'size-l'); document.body.classList.add('size-' + s); }
 
@@ -1197,6 +1226,60 @@ document.addEventListener('pointercancel', () => Drag.end(false));
 // once a drag has started, the finger moves the tile, not the page
 document.addEventListener('touchmove', e => { if (Drag.st && Drag.st.active) e.preventDefault(); }, { passive: false });
 
+/* ---------------- paint mode: pick a brush, then tap or drag across tiles ---------------- */
+const BRUSHES = [...PADS.map((p, i) => ({ id: 'c' + i, color: i, name: p.name })), { id: 'next1', next: true, name: 'Nästa efteråt' }, { id: 'next0', next: false, name: 'Inte nästa' }];
+const Brush = {
+  on: false, cur: 'c0', stroke: null,
+  get tool() { return BRUSHES.find(b => b.id === this.cur) || BRUSHES[0]; },
+  toggle(on = !this.on) {
+    this.on = on;
+    if (on) { if (editMode) $('#btnEdit').click(); if (moving) endMove(); if (searchQ !== null) closeSearch(); }
+    document.body.classList.toggle('painting', on); $('#btnBrush').setAttribute('aria-pressed', String(on)); $('#brush').hidden = !on;
+    if (on) { this.drawBar(); toast('Välj en färg och tryck eller dra över rutorna.'); }
+  },
+  drawBar() {
+    $('#brush .brush-tools').innerHTML = BRUSHES.map(b => b.color != null
+      ? `<button class="swatch" data-brush="${b.id}" aria-label="Måla ${b.name.toLowerCase()}" aria-pressed="${b.id === this.cur}" style="--pad:${PADS[b.color].bg};--ink:${PADS[b.color].ink}">${ic('check')}</button>`
+      : `<button class="btn" data-brush="${b.id}" aria-pressed="${b.id === this.cur}">${b.name}</button>`).join('');
+  },
+  // returns true when the tile changed
+  apply(t) {
+    const b = this.tool;
+    if (b.color != null) { if ((t.color ?? 0) === b.color) return false; t.color = b.color; return true; }
+    if (!isMusic(t) || !!t.next === b.next) return false; t.next = b.next; return true;
+  },
+  start(e) {
+    e.preventDefault();
+    this.stroke = { snap: new Map(S.tiles.map(t => [t.id, { color: t.color, next: t.next }])), n: 0, pid: e.pointerId, y: e.clientY };
+    this.at(e.clientX, e.clientY); this.scroll();
+  },
+  at(x, y) {
+    const el = document.elementFromPoint(x, y); const hit = el && el.closest('#grid .tile[data-t], #horns .horn'); if (!hit) return;
+    const t = tile(hit.dataset.t); if (!t || !this.apply(t)) return;
+    this.stroke.n++; const p = pad(t); hit.style.setProperty('--pad', p.bg); hit.style.setProperty('--ink', p.ink);
+    LP.render();
+  },
+  scroll() {   // drag to the top or bottom edge to keep painting further down
+    const s = this.stroke; if (!s) return;
+    const m = $('#main'), r = m.getBoundingClientRect(), edge = 60;
+    if (s.y < r.top + edge) m.scrollTop -= 8; else if (s.y > r.bottom - edge && s.y < r.bottom) m.scrollTop += 8;
+    requestAnimationFrame(() => this.scroll());
+  },
+  end() {
+    const s = this.stroke; if (!s) return; this.stroke = null;
+    if (!s.n) return;
+    save(); UI.build();
+    toast(s.n === 1 ? '1 ruta målad.' : s.n + ' rutor målade.', { action: 'Ångra', onAction: () => { S.tiles.forEach(t => { const o = s.snap.get(t.id); if (o) { t.color = o.color; t.next = o.next; } }); save(); UI.build(); } });
+  },
+  one(t) { if (this.apply(t)) { save(); UI.build(); } },   // a Launchpad pad or bound key while painting
+};
+document.addEventListener('pointermove', e => { const s = Brush.stroke; if (s && e.pointerId === s.pid) { s.y = e.clientY; Brush.at(e.clientX, e.clientY); } }, { passive: true });
+document.addEventListener('pointerup', () => Brush.end());
+document.addEventListener('pointercancel', () => Brush.end());
+$('#btnBrush').onclick = () => Brush.toggle();
+$('#brushDone').onclick = () => Brush.toggle(false);
+$('#brush').addEventListener('click', e => { const b = e.target.closest('[data-brush]'); if (!b) return; Brush.cur = b.dataset.brush; Brush.drawBar(); });
+
 function endMove() { moving = null; $('#banner').hidden = true; UI.build(); }
 
 // Destructive changes are applied at once and can be taken back from the toast.
@@ -1224,10 +1307,12 @@ for (const root of [$('#grid'), $('#horns')]) {
   root.addEventListener('contextmenu', e => e.preventDefault());
 }
 $('#main').addEventListener('scroll', () => hold.cancel(), { passive: true });
-$('#grid').addEventListener('pointerdown', e => { hold.fired = false; const el = e.target.closest('.tile[data-t]'); if (!el) return; if (editMode) Drag.down(e, el); else if (!moving) hold.start(e, el.dataset.t); });
+$('#grid').addEventListener('pointerdown', e => { hold.fired = false; const el = e.target.closest('.tile[data-t]'); if (!el) return; if (Brush.on) return Brush.start(e); if (editMode) Drag.down(e, el); else if (!moving) hold.start(e, el.dataset.t); });
 $('#grid').addEventListener('click', e => {
   if (hold.fired) { hold.fired = false; return; }
+  if (Brush.on && !e.target.closest('[data-lppage]')) return;
   if (Drag.swallow) return;
+  const pg = e.target.closest('[data-lppage]'); if (pg) { lpPage = +pg.dataset.lppage; UI.build(); return; }   // show that page on the Launchpad
   const act = e.target.closest('[data-act]');
   if (act) return act.dataset.act === 'add' ? openAdd() : openMenu(act.dataset.act);
   const el = e.target.closest('.tile'); if (!el) return;
@@ -1241,6 +1326,7 @@ function hornTap(t) { if (moving) placeTile(t); else if (editMode) openTileEdito
 $('#horns').addEventListener('pointerdown', e => {
   hold.fired = false;
   const el = e.target.closest('.horn'); const t = el && tile(el.dataset.t); if (!t) return;
+  if (Brush.on) { hornDown = true; return Brush.start(e); }
   if (editMode) { hornDown = false; Drag.down(e, el); return; }   // edit mode: tap opens settings on click, hold drags
   if (soundLocked() && !moving) { hornDown = false; return; }
   hornDown = true; hornTap(t);
@@ -1259,7 +1345,7 @@ $('#btnSearch').onclick = () => (searchQ === null ? openSearch() : closeSearch()
 $('#q').oninput = e => { searchQ = e.target.value; UI.build(); };
 $('#q').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
 $('#btnEdit').onclick = () => {
-  editMode = !editMode; $('#btnEdit').setAttribute('aria-pressed', String(editMode)); UI.build();
+  editMode = !editMode; if (editMode && Brush.on) Brush.toggle(false); $('#btnEdit').setAttribute('aria-pressed', String(editMode)); UI.build();
   toast(editMode ? 'Redigeringsläge: tryck på en ruta för att ändra den, eller håll och dra den för att flytta.' : 'Spelläge.');
 };
 $('#btnFade').onclick = () => Engine.fadeOut();
@@ -1268,7 +1354,7 @@ $('#btnRandom').onclick = () => Engine.random(curGroup().id);
 $('#scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closeSheet(); });
 $('#shClose').onclick = () => closeSheet();
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { if (sheetOpen()) closeSheet(); else if (moving) endMove(); else if (searchQ !== null) closeSearch(); return; }
+  if (e.key === 'Escape') { if (sheetOpen()) closeSheet(); else if (Brush.on) Brush.toggle(false); else if (moving) endMove(); else if (searchQ !== null) closeSearch(); return; }
   if (e.repeat || /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
   const key = Trig.keyOf(e); if (!key) return;
   SP.activate(); AudioL.ensure();
@@ -1628,12 +1714,15 @@ const Menu = {
       ${lineHtml('Håll högtalaren vaken med ett tyst spår mellan låtarna', 'sAlive', st.keepAlive)}
       ${lineHtml('Håll skärmen tänd', 'sAwake', st.keepAwake)}
       </div>
+      <div class="field"><label>Rutnät</label><div class="seg">${[['free', 'Fritt'], ['lp', 'Som Launchpad']].map(([k, n]) => `<button data-layout="${k}" aria-pressed="${(st.layout || 'free') === k}">${n}</button>`).join('')}</div></div>
+      <p class="hint">”Som Launchpad” visar 8 rutor per rad och 7 rader per sida, precis som på plattan. Nedersta raden på plattan är ljudeffekterna.</p>
       <div class="field"><label>Rutornas storlek</label><div class="seg">${[['s', 'Små'], ['m', 'Mellan'], ['l', 'Stora']].map(([k, n]) => `<button data-size="${k}" aria-pressed="${st.tileSize === k}">${n}</button>`).join('')}</div></div>`, { back: () => openMenu() });
     const rng = (id, key, unit) => { $('#' + id).oninput = e => { st[key] = +e.target.value; $('#' + id + 'V').textContent = c(st[key]) + unit; save(); if (key === 'musicVol' && Engine.cur) { Mix.base = Engine.vol(Engine.cur.tile); Mix.apply(); } }; };
     rng('sMv', 'musicVol', ' %'); rng('sSv', 'sfxVol', ' %'); rng('sFo', 'fadeOut', ' s'); rng('sFi', 'fadeIn', ' s');
     $('#sMark').onchange = e => { st.markPlayed = e.target.checked; save(); };
     $('#sAlive').onchange = e => { st.keepAlive = e.target.checked; save(); if (!st.keepAlive && Idle.on && !Engine.cur) { Idle.on = false; SP.pause(); } };
     $('#sAwake').onchange = e => { st.keepAwake = e.target.checked; save(); wake(); };
+    $$('#shBody [data-layout]').forEach(b => { b.onclick = () => { st.layout = b.dataset.layout; save(); UI.build(); $$('#shBody [data-layout]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }; });
     $$('#shBody [data-size]').forEach(b => { b.onclick = () => { st.tileSize = b.dataset.size; save(); applyTileSize(); $$('#shBody [data-size]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); }; });
   },
   sync() {
@@ -1873,6 +1962,7 @@ const Back = {
   pressed() {
     if (sheetOpen()) closeSheet();
     else if (moving) endMove();
+    else if (Brush.on) Brush.toggle(false);
     else if (searchQ !== null) closeSearch();
     else if (editMode) $('#btnEdit').click();
     else if (Date.now() - this.asked < 2500) return history.back();
