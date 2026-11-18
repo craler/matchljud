@@ -310,7 +310,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.7';
+const VERSION = '2.8';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -994,8 +994,8 @@ const LP = {
     const f = {}; const { list, pages } = this.page(); const gi = S.groups.indexOf(curGroup());
     list.forEach((t, i) => { f[this.note(i)] = this.led(t); });
     horns().forEach((t, j) => { f[11 + j] = this.led(t); });
-    f[91] = [0, lpPage > 0 ? 3 : 1]; f[92] = [0, lpPage < pages - 1 ? 3 : 1];
-    f[93] = [0, gi > 0 ? 45 : 1]; f[94] = [0, gi < S.groups.length - 1 ? 45 : 1];
+    f[91] = [0, gi > 0 ? 45 : 1]; f[92] = [0, gi < S.groups.length - 1 ? 45 : 1];   // ▲ ▼ change group
+    f[93] = [0, lpPage > 0 ? 3 : 1]; f[94] = [0, lpPage < pages - 1 ? 3 : 1];          // ◀ ▶ change page
     f[95] = [0, 9]; f[96] = [0, 5]; f[97] = [0, 13]; f[98] = [0, 53]; f[19] = [0, 9]; f[99] = [0, 3];
     this.SCENE.forEach((n, i) => { if (S.groups[i]) f[n] = [0, this.groupLed(S.groups[i])]; });
     // buttons the user bound by hand win over the positions above
@@ -1030,10 +1030,10 @@ const LP = {
       if (Brush.on) Brush.one(t); else if (editMode) openTileEditor(t); else Engine.trigger(t);
     } else if (type === 0xB0) {
       const gi = S.groups.indexOf(curGroup());
-      if (a === 91) { if (lpPage > 0) { lpPage--; UI.build(); showLpPage(); } }
-      else if (a === 92) { if (lpPage < this.page().pages - 1) { lpPage++; UI.build(); showLpPage(); } }
-      else if (a === 93) { if (gi > 0) selectGroup(S.groups[gi - 1].id); }
-      else if (a === 94) { if (gi < S.groups.length - 1) selectGroup(S.groups[gi + 1].id); }
+      if (a === 91) { if (gi > 0) selectGroup(S.groups[gi - 1].id); }
+      else if (a === 92) { if (gi < S.groups.length - 1) selectGroup(S.groups[gi + 1].id); }
+      else if (a === 93) { if (lpPage > 0) { lpPage--; UI.build(); } }
+      else if (a === 94) { if (lpPage < this.page().pages - 1) { lpPage++; UI.build(); } }
       else if (a === 95 || a === 19) Engine.fadeOut();
       else if (a === 96) Engine.stopAll();
       else if (a === 97) Engine.restart();
@@ -1145,7 +1145,7 @@ const LP_CSS = { 0: '', 1: '', 3: '#E9EBEF', 5: '#FF5A5F', 9: '#FF8B3E', 11: '#7
 function vlpHtml() {
   const { list, pages } = LP.page(), hs = horns();
   const btn = (cc, label, title) => `<button class="vlp-btn" data-cc="${cc}" title="${esc(title || label)}" aria-label="${esc(title || label)}">${esc(label)}</button>`;
-  let h = VLP_TOP.map(([cc, l]) => btn(cc, l, { 91: 'Föregående sida', 92: 'Nästa sida', 93: 'Föregående grupp', 94: 'Nästa grupp' }[cc])).join('');
+  let h = VLP_TOP.map(([cc, l]) => btn(cc, l, { 91: 'Föregående grupp', 92: 'Nästa grupp', 93: 'Föregående sida', 94: 'Nästa sida' }[cc])).join('');
   h += `<div class="vlp-logo">${pages > 1 ? 'Sida<br>' + (lpPage + 1) + '/' + pages : ''}</div>`;
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -1624,7 +1624,7 @@ function lpMapHtml() {
     <li><i class="chip z-tile"></i><span><b>Rad 1–7</b> är rutorna i gruppen som visas, i samma ordning som på skärmen.</span></li>
     <li><i class="chip z-fx"></i><span><b>Nedersta raden</b> är ljudeffekterna. De ligger kvar i alla grupper.</span></li>
     <li><i class="chip z-rndg"></i><span><b>Sidoknapp 1–7</b> slumpar en ospelad låt ur varsin grupp: ${names}.</span></li>
-    <li><i class="chip z-nav"></i><span><b>▲ ▼</b> byter sida när gruppen har fler än 56 rutor. <b>◀ ▶</b> byter grupp.</span></li>
+    <li><i class="chip z-nav"></i><span><b>▲ ▼</b> byter grupp. <b>◀ ▶</b> byter sida när gruppen har fler än 56 rutor.</span></li>
     <li><i class="chip z-fade"></i><span><b>Session</b> och sidoknappen längst ner tonar ut. Två tryck stoppar direkt.</span></li>
     <li><i class="chip z-stop"></i><span><b>Drums</b> stoppar allt ljud på en gång.</span></li>
     <li><i class="chip z-again"></i><span><b>Keys</b> börjar om låten.</span></li>
