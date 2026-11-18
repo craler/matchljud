@@ -312,7 +312,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.10';
+const VERSION = '2.11';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -998,7 +998,7 @@ const LP = {
     const f = {}; const { list, pages } = this.page(); const gi = S.groups.indexOf(curGroup());
     list.forEach((t, i) => { f[this.note(i)] = this.led(t); });
     horns().forEach((t, j) => { f[11 + j] = this.led(t); });
-    f[91] = [0, gi > 0 ? 45 : 1]; f[92] = [0, gi < S.groups.length - 1 ? 45 : 1];   // ▲ ▼ change group
+    f[91] = [0, gi > 0 ? 21 : 1]; f[92] = [0, gi < S.groups.length - 1 ? 21 : 1];   // ▲ ▼ change group: green like the group buttons
     f[93] = [0, lpPage > 0 ? 3 : 1]; f[94] = [0, lpPage < pages - 1 ? 3 : 1];          // ◀ ▶ change page
     f[95] = [0, 9]; f[96] = [0, 5]; f[97] = [0, 13]; f[98] = [0, 53]; f[19] = [0, 9]; f[99] = [0, 3];
     // groups that aren't open but still have songs left: a soft green, well below the open group
@@ -1627,7 +1627,7 @@ $('#fileAudio').onchange = async e => {
 
 /* ---------- menu ---------- */
 function lpMapHtml() {
-  const top = [['z-nav', '▲'], ['z-nav', '▼'], ['z-nav', '◀'], ['z-nav', '▶'], ['z-fade', ''], ['z-stop', ''], ['z-again', ''], ['z-rnd', '']];
+  const top = [['z-rndg', '▲'], ['z-rndg', '▼'], ['z-nav', '◀'], ['z-nav', '▶'], ['z-fade', ''], ['z-stop', ''], ['z-again', ''], ['z-rnd', '']];
   let cells = top.map(([c, s]) => `<i class="k ${c}">${s}</i>`).join('') + '<i class="logo"></i>';
   for (let r = 0; r < 8; r++) { for (let c = 0; c < 8; c++) cells += `<i class="${r === 7 ? 'z-fx' : 'z-tile'}"></i>`; cells += `<i class="k ${r === 7 ? 'z-fade' : 'z-rndg'}">${r < 7 ? r + 1 : ''}</i>`; }
   const names = S.groups.slice(0, 7).map(g => esc(g.name)).join(', ');
