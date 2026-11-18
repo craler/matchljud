@@ -312,7 +312,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.9';
+const VERSION = '2.10';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -1001,11 +1001,13 @@ const LP = {
     f[91] = [0, gi > 0 ? 45 : 1]; f[92] = [0, gi < S.groups.length - 1 ? 45 : 1];   // ▲ ▼ change group
     f[93] = [0, lpPage > 0 ? 3 : 1]; f[94] = [0, lpPage < pages - 1 ? 3 : 1];          // ◀ ▶ change page
     f[95] = [0, 9]; f[96] = [0, 5]; f[97] = [0, 13]; f[98] = [0, 53]; f[19] = [0, 9]; f[99] = [0, 3];
-    this.SCENE.forEach((n, i) => { if (S.groups[i]) f[n] = [0, this.groupLed(S.groups[i])]; });
+    // groups that aren't open but still have songs left: a soft green, well below the open group
+    const soft = v => (v === 23 && this.access && this.access.sysexEnabled ? [3, 1, 9, 3] : [0, v]);
+    this.SCENE.forEach((n, i) => { if (S.groups[i]) f[n] = soft(this.groupLed(S.groups[i])); });
     // buttons the user bound by hand win over the positions above
     const mine = k => { const p = Trig.parts(k); return !p.kb && this.input && p.port === (this.input.name || this.input.id) ? p.num : 0; };
     for (const t of S.tiles) for (const k of t.trig || []) { const n = mine(k); if (n) f[n] = this.led(t); }
-    for (const g of S.groups) for (const k of g.trig || []) { const n = mine(k); if (n) f[n] = [0, this.groupLed(g)]; }
+    for (const g of S.groups) for (const k of g.trig || []) { const n = mine(k); if (n) f[n] = soft(this.groupLed(g)); }
     for (const a of ACTIONS) for (const k of S.binds[a.id] || []) { const n = mine(k); if (n) f[n] = [0, a.lp]; }
     return f;
   },
@@ -1164,7 +1166,7 @@ function vlpHtml() {
 }
 function vlpPaint() {
   const f = LP.frame();
-  for (const b of $$('#grid .vlp-btn')) { const v = (f[+b.dataset.cc] || [0, 0])[1], c = LP_CSS[v]; b.classList.toggle('off', !c); if (c) b.style.setProperty('--c', c); }
+  for (const b of $$('#grid .vlp-btn')) { const w = f[+b.dataset.cc] || [0, 0], c = w[0] === 3 ? '#2d6e4c' : LP_CSS[w[1]]; b.classList.toggle('off', !c); if (c) b.style.setProperty('--c', c); }
 }
 function selectGroup(id) { S.curGroup = id; lpPage = 0; save(); $('#main').scrollTop = 0; if (searchQ !== null) closeSearch(); else UI.build(); }
 function applyTileSize() { const s = TILE_PX[S.settings.tileSize] ? S.settings.tileSize : 'm'; document.documentElement.style.setProperty('--tile', TILE_PX[s] + 'px'); document.body.classList.remove('size-s', 'size-m', 'size-l'); document.body.classList.add('size-' + s); }
