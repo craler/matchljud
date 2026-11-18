@@ -38,6 +38,7 @@ svg.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;strok
 .btn.danger{background:none;box-shadow:inset 0 0 0 1.5px var(--bad);color:var(--bad)}
 .btn.small{min-height:38px;padding:0 10px;font-size:14px}
 .btn.square{width:44px;padding:0}
+.btn.square[aria-pressed=true]{background:var(--ok);color:#04200F}
 .btn.wide{width:100%}
 .btn:disabled{opacity:.35;filter:none}
 
@@ -252,7 +253,7 @@ ul.legend b{color:var(--text);font-weight:600}
   #transport{order:-1;grid-template-columns:minmax(0,1fr);gap:6px;padding:20px 14px 10px}
   .tp-bar{left:14px;right:14px;top:10px}
   .tp-clock{font-size:56px}
-  .tp-ctl{display:grid;grid-template-columns:48px 1fr 48px;margin-top:6px}
+  .tp-ctl{display:grid;grid-template-columns:48px 1fr 48px 48px;margin-top:6px}
   .tp-ctl .btn{width:auto;min-height:48px}
   #horns{padding:6px 14px 0;grid-template-columns:repeat(3,minmax(0,1fr))}
   #tabs{flex-direction:column;overflow:visible;padding:14px 14px 16px}
@@ -286,6 +287,7 @@ ul.legend b{color:var(--text);font-weight:600}
     <div class="tp-ctl">
       <button class="btn square" id="btnRestart" aria-label="Börja om låten" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14"/><path d="M19 5.5v13L9.5 12z"/></svg></button>
       <button class="btn primary" id="btnFade" disabled>Tona ut</button>
+      <button class="btn square" id="btnAuto" aria-pressed="false" aria-label="Spela vidare med nästa låt" title="Spela vidare med nästa låt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h11M11 7l5 5-5 5M20 6v12"/></svg></button>
       <button class="btn square" id="btnRandom" aria-label="Slumpa en ospelad låt"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h3.5c2.2 0 3.6 1.2 5 3.6l1 1.8c1.4 2.4 2.8 3.6 5 3.6H21"/><path d="M3 17h3.5c1.5 0 2.6-.5 3.6-1.6M14 8.5c1-1 2-1.5 3.5-1.5H21"/><path d="m18 4 3 3-3 3M18 14l3 3-3 3"/></svg></button>
     </div>
   </section>
@@ -310,7 +312,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.8';
+const VERSION = '2.9';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -416,6 +418,8 @@ const tilesOf = gid => S.tiles.filter(t => t.groupId === gid).sort((a, b) => a.o
 const tile = id => S.tiles.find(t => t.id === id);
 const isMusic = t => t.kind === 'spotify' || !t.overlay;
 const playLen = t => Math.max(0, (t.stop || t.duration || 0) - (t.start || 0));
+// a song continues with the next one in its list when the tile says so, or its whole group does
+const playsOn = t => !!t.next || !!(group(t.groupId) || {}).autoNext;
 const renumber = gid => tilesOf(gid).forEach((t, i) => { t.order = i; });
 // The first eight sound effects live in the horn strip (and on the Launchpad's bottom row), whatever group is open.
 function horns() { const out = []; for (const g of S.groups) for (const t of tilesOf(g.id)) if (!isMusic(t) && out.length < 8) out.push(t); return out; }
@@ -727,7 +731,7 @@ const Engine = {
   advance(c) {
     if (this.cur !== c) return;
     this.cur = null; UI.refresh();
-    const nx = c.tile.next && this.nextAfter(c.tile);
+    const nx = playsOn(c.tile) && this.nextAfter(c.tile);
     if (nx) this.play(nx);
   },
   async loop(c) {
@@ -1115,12 +1119,13 @@ const UI = {
       const music = tilesOf(el.dataset.g).filter(isMusic);
       $('.tab-n', el).textContent = music.length ? music.filter(t => !t.played).length + ' kvar' : 'tom';
     }
-    const nx = c && c.tile.next ? Engine.nextAfter(c.tile) : null;
+    const nx = c && playsOn(c.tile) ? Engine.nextAfter(c.tile) : null;
     $('#transport').classList.toggle('idle', !c);
     $('#tpTitle').textContent = c ? c.tile.title : 'Inget spelas';
     $('#tpSub').textContent = !c ? '' : nx ? 'Sedan: ' + nx.title : c.loopsLeft ? 'Loopar' : (c.tile.alt || c.tile.artist || '');
     $('#btnFade').disabled = !c; $('#btnRestart').disabled = !c;
     $('#btnFade').textContent = c && (c.phase === 'fading' || c.phase === 'ending') ? 'Stopp' : VOLUME_LOCKED && (!c || c.kind === 'spotify') ? 'Stoppa' : 'Tona ut';
+    const ag = curGroup(); $('#btnAuto').setAttribute('aria-pressed', String(!!ag.autoNext)); $('#btnAuto').setAttribute('aria-label', (ag.autoNext ? 'Sluta spela vidare i ' : 'Spela vidare med nästa låt i ') + ag.name);
     $('#btnRandom').setAttribute('aria-label', 'Slumpa en ospelad låt i ' + curGroup().name);
     if (sheetHook) sheetHook();
     LP.render(); if (document.body.classList.contains('lp-layout')) vlpPaint();
@@ -1382,6 +1387,10 @@ $('#btnEdit').onclick = () => {
 };
 $('#btnFade').onclick = () => Engine.fadeOut();
 $('#btnRestart').onclick = () => Engine.restart();
+$('#btnAuto').onclick = () => {
+  const g = curGroup(); g.autoNext = !g.autoNext; save(); UI.refresh();
+  toast(g.autoNext ? g.name + ' spelar vidare med nästa låt.' : g.name + ' stannar efter varje låt.');
+};
 $('#btnRandom').onclick = () => Engine.random(curGroup().id);
 $('#scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closeSheet(); });
 $('#shClose').onclick = () => closeSheet();
@@ -1716,8 +1725,8 @@ const Menu = {
         <div class="top"><input type="text" data-gname="${g.id}" aria-label="Gruppens namn" value="${esc(g.name)}">
           <button class="iconbtn" data-gup="${g.id}" aria-label="Flytta upp" ${i ? '' : 'disabled'}>${ic('up')}</button>
           <button class="iconbtn" data-gdel="${g.id}" aria-label="Ta bort gruppen">${ic('trash')}</button></div>
-        <p class="hint">${tilesOf(g.id).length} rutor. Slumpas med ${[...(g.trig || []).map(k => Trig.label(k)), i < 7 ? 'sidoknapp ' + (i + 1) : ''].filter(Boolean).join(' eller ') || 'knappen på skärmen'}.</p>
-        <div class="row"><button class="btn small" data-gtrig="${g.id}">${learning(g) ? 'Tryck på knappen nu… (avbryt)' : 'Koppla en knapp'}</button>${(g.trig || []).length ? `<button class="btn small" data-gun="${g.id}">Koppla loss</button>` : ''}</div></div>`).join('')}</div>
+        <p class="hint">${tilesOf(g.id).length} rutor.${g.autoNext ? ' Spelar vidare med nästa låt.' : ''} Slumpas med ${[...(g.trig || []).map(k => Trig.label(k)), i < 7 ? 'sidoknapp ' + (i + 1) : ''].filter(Boolean).join(' eller ') || 'knappen på skärmen'}.</p>
+        <div class="row"><button class="btn small" data-gauto="${g.id}">${g.autoNext ? 'Stanna efter varje låt' : 'Spela vidare'}</button><button class="btn small" data-gtrig="${g.id}">${learning(g) ? 'Tryck på knappen nu… (avbryt)' : 'Koppla en knapp'}</button>${(g.trig || []).length ? `<button class="btn small" data-gun="${g.id}">Koppla loss</button>` : ''}</div></div>`).join('')}</div>
       <div class="row"><input type="text" id="gNew" placeholder="Ny grupp" aria-label="Namn på ny grupp"><button class="btn primary" id="gAdd" style="flex:none">Lägg till</button></div>`, { back: () => openMenu(), keep: true });
     const again = () => { if (sheetOpen()) Menu.groups(); };
     $$('#shBody [data-gname]').forEach(el => { el.onchange = () => { const g = group(el.dataset.gname); const n = el.value.trim(); if (n) { g.name = n; save(); UI.build(); } else el.value = g.name; }; });
@@ -1729,6 +1738,7 @@ const Menu = {
       again();
     }; });
     $$('#shBody [data-gtrig]').forEach(b => { b.onclick = () => { const g = group(b.dataset.gtrig); Trig.learn = learning(g) ? null : { group: g, done: again }; again(); }; });
+    $$('#shBody [data-gauto]').forEach(b => { b.onclick = () => { const g = group(b.dataset.gauto); g.autoNext = !g.autoNext; save(); UI.build(); again(); }; });
     $$('#shBody [data-gun]').forEach(b => { b.onclick = () => { group(b.dataset.gun).trig = []; save(); UI.build(); again(); }; });
     const add = () => { const n = $('#gNew').value.trim(); if (!n) return; const g = { id: uid(), name: n }; S.groups.push(g); S.curGroup = g.id; save(); UI.build(); again(); };
     $('#gAdd').onclick = add; $('#gNew').onkeydown = e => { if (e.key === 'Enter') add(); };
