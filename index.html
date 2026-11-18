@@ -106,16 +106,25 @@ body.editing .tile[data-t],body.moving .tile[data-t]{outline:2px dashed #ffffffb
 .tile.drop-after,.horn.drop-after{box-shadow:6px 0 0 -1px #fff}
 body.dragging{cursor:grabbing}
 /* "Som Launchpad": 8 pads per row, 7 rows per page, exactly as on the device */
-body.lp-layout #grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
-body.lp-layout .tile{padding:5px 5px 4px;border-radius:8px}
-body.lp-layout .tile-title{font-size:clamp(9px,1.25vw,15px);line-height:1.12;-webkit-line-clamp:4;letter-spacing:0;overflow-wrap:break-word;hyphens:auto}
-body.lp-layout .tile-sub,body.lp-layout .tile-flags,body.lp-layout .tile-key{display:none}
-body.lp-layout .tile-time,body.lp-layout .tile.is-live .tile-time{font-size:clamp(9px,1.1vw,14px)}
-.lp-page{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:8px 0 1px;color:var(--muted);font-size:13px;font-weight:600;text-align:left}
-.lp-page:first-child{margin-top:0}
-.lp-page b{color:var(--text)}
-.lp-page::after{content:"";flex:1;height:1px;background:var(--line)}
-.lp-page.is-cur{color:var(--ok)}
+/* "Som Launchpad": the screen becomes the device. One page at a time: top-row buttons, 7 rows of tiles,
+   the horn row at the bottom, the side buttons on the right. Sized to fit the window, never wider. */
+body.lp-layout #grid{display:block}
+body.lp-layout #horns{display:none}
+.vlp{container-type:inline-size;display:grid;grid-template-columns:repeat(8,minmax(0,1fr)) .62fr;grid-template-rows:repeat(9,auto);gap:clamp(3px,.8cqw,8px);
+  width:min(100%,calc(100dvh - 96px));margin:0 auto;padding:clamp(6px,1.4cqw,16px);border-radius:clamp(10px,2cqw,22px);background:#0b0c0e;box-shadow:inset 0 0 0 1px var(--line)}
+.vlp .tile{aspect-ratio:1;padding:clamp(3px,.8cqw,8px);border-radius:clamp(5px,1cqw,10px)}
+.vlp .tile-title{font-size:clamp(8.5px,1.75cqw,16px);line-height:1.12;-webkit-line-clamp:3;letter-spacing:0;overflow-wrap:break-word;hyphens:auto}
+.vlp .tile-sub,.vlp .tile-flags,.vlp .tile-key{display:none}
+.vlp .tile-time,.vlp .tile.is-live .tile-time{font-size:clamp(8px,1.5cqw,14px)}
+.vlp .tile.slot{box-shadow:inset 0 0 0 1px #ffffff10;background:#16181c}
+.vlp .tile.horn-pad .tile-time{display:none}
+.vlp-btn{align-self:center;justify-self:center;width:min(84%,clamp(26px,6cqw,60px));aspect-ratio:1;border-radius:50%;display:grid;place-items:center;text-align:center;
+  font:700 clamp(7px,1.15cqw,12px)/1.05 var(--ui);color:#000c;background:var(--c,#2a2d35);box-shadow:0 0 12px -3px var(--c,transparent),inset 0 1px 0 #ffffff55;overflow:hidden;padding:2px}
+.vlp-btn.off{background:#24262c;color:var(--dim);box-shadow:none}
+.vlp-btn:active{transform:scale(.92)}
+.vlp-logo{align-self:center;justify-self:center;color:var(--muted);font:600 clamp(8px,1.3cqw,13px)/1.1 var(--ui);text-align:center}
+#btnLayout{display:none}
+@media (min-width:700px){#btnLayout{display:grid}}
 body.size-s .tile{padding:7px 8px 6px;border-radius:12px}
 body.size-s .tile-title{font-size:13px}
 body.size-s .tile-sub{display:none}
@@ -259,6 +268,7 @@ ul.legend b{color:var(--text);font-weight:600}
   <h1 id="title">Matchljud</h1>
   <input id="q" type="search" placeholder="Sök bland alla låtar" aria-label="Sök bland alla låtar" autocomplete="off" enterkeyhint="search" hidden>
   <button id="status" aria-label="Anslutningar"></button>
+  <button class="iconbtn" id="btnLayout" aria-label="Visa som Launchpad" aria-pressed="false" title="Visa som Launchpad"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M9.2 3.5v17M14.8 3.5v17M3.5 9.2h17M3.5 14.8h17"/></svg></button>
   <button class="iconbtn" id="btnSearch" aria-label="Sök" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
   <button class="iconbtn" id="btnBrush" aria-label="Måla rutor" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5 19.5 9.5 11 18l-5-5z"/><path d="M6 13c-2 0-3 1.5-3 3.5S2 20 2 20s4 .5 5.5-1 1.5-3 1.5-3"/></svg></button>
   <button class="iconbtn" id="btnEdit" aria-label="Redigera rutor" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
@@ -300,7 +310,7 @@ ul.legend b{color:var(--text);font-weight:600}
    Matchljud — courtside sound desk
    Spotify (Web Playback SDK) + local sounds (Web Audio) + Launchpad Mini MK3
    ========================================================================== */
-const VERSION = '2.6';
+const VERSION = '2.7';
 
 // Tile colours. Light pads carry dark ink, deep pads carry white ink, so every label passes contrast.
 // lp = [bright, dim] index in the Launchpad's built-in palette.
@@ -1074,13 +1084,12 @@ const UI = {
     let list;
     if (searching) { const q = searchQ.trim().toLowerCase(); list = q ? S.tiles.filter(t => isMusic(t) && [t.title, t.alt, t.artist].join(' ').toLowerCase().includes(q)).slice(0, 90) : []; }
     else list = gridTiles(g.id);
-    const lpView = S.settings.layout === 'lp' && !searching;
+    const lpView = S.settings.layout === 'lp' && !searching && !moving;
+    $('#btnLayout').setAttribute('aria-pressed', String(S.settings.layout === 'lp'));
     document.body.classList.toggle('lp-layout', lpView);
-    let html = lpView
-      ? list.map((t, i) => (i % 56 ? '' : `<button class="lp-page${Math.floor(i / 56) === lpPage ? ' is-cur' : ''}" data-lppage="${i / 56}"><b>Sida ${i / 56 + 1}</b>${Math.floor(i / 56) === lpPage && LP.connected ? 'visas på Launchpad' : list.length > 56 ? '▲ ▼ på Launchpad' : ''}</button>`) + tileHtml(t, false)).join('')
-      : list.map(t => tileHtml(t, searching)).join('');
+    let html = lpView ? vlpHtml() : list.map(t => tileHtml(t, searching)).join('');
     if (moving && !searching) html += '<button class="tile slot" data-end="1">Lägg sist</button>';
-    else if (!list.length) html = emptyHtml(searching);
+    else if (!list.length && !(lpView && S.tiles.length)) html = emptyHtml(searching);
     $('#grid').innerHTML = html;
     $('#horns').innerHTML = horns().map((t, i) => { const p = pad(t); return `<button class="horn" data-t="${t.id}" style="--pad:${p.bg};--ink:${p.ink}">${LP.connected ? `<small>${i + 1}</small>` : ''}<span>${esc(t.alt || t.title)}</span></button>`; }).join('');
     $('#tabs').innerHTML = S.groups.map(x => `<button class="tab" role="tab" data-g="${x.id}" aria-selected="${x === g}"><span class="tab-name">${esc(x.name)}</span><span class="tab-n"></span></button>`).join('');
@@ -1114,7 +1123,7 @@ const UI = {
     $('#btnFade').textContent = c && (c.phase === 'fading' || c.phase === 'ending') ? 'Stopp' : VOLUME_LOCKED && (!c || c.kind === 'spotify') ? 'Stoppa' : 'Tona ut';
     $('#btnRandom').setAttribute('aria-label', 'Slumpa en ospelad låt i ' + curGroup().name);
     if (sheetHook) sheetHook();
-    LP.render();
+    LP.render(); if (document.body.classList.contains('lp-layout')) vlpPaint();
     this.clock();
   },
   clock() {
@@ -1129,7 +1138,29 @@ const UI = {
     if (el) { $('.tile-time', el).textContent = left; $('.tile-drain', el).style.transform = `scaleX(${k})`; }
   },
 };
-function showLpPage() { const h = $('#grid .lp-page.is-cur'); if (h) h.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+function showLpPage() {}
+// The on-screen Launchpad. Its buttons send the same messages as the real ones, so both always behave alike.
+const VLP_TOP = [[91, '▲'], [92, '▼'], [93, '◀'], [94, '▶'], [95, 'Tona ut'], [96, 'Stopp'], [97, 'Börja om'], [98, 'Slumpa']];
+const LP_CSS = { 0: '', 1: '', 3: '#E9EBEF', 5: '#FF5A5F', 9: '#FF8B3E', 11: '#7a4a2a', 13: '#FFC53D', 21: '#46D08A', 23: '#2d6e4c', 45: '#4C6FE6', 53: '#B17CFF' };
+function vlpHtml() {
+  const { list, pages } = LP.page(), hs = horns();
+  const btn = (cc, label, title) => `<button class="vlp-btn" data-cc="${cc}" title="${esc(title || label)}" aria-label="${esc(title || label)}">${esc(label)}</button>`;
+  let h = VLP_TOP.map(([cc, l]) => btn(cc, l, { 91: 'Föregående sida', 92: 'Nästa sida', 93: 'Föregående grupp', 94: 'Nästa grupp' }[cc])).join('');
+  h += `<div class="vlp-logo">${pages > 1 ? 'Sida<br>' + (lpPage + 1) + '/' + pages : ''}</div>`;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const t = r < 7 ? list[r * 8 + c] : hs[c];
+      h += t ? tileHtml(t, false).replace('class="tile"', r < 7 ? 'class="tile"' : 'class="tile horn-pad"') : '<div class="tile slot"></div>';
+    }
+    const g = r < 7 && S.groups[r];
+    h += r < 7 ? (g ? btn(LP.SCENE[r], String(r + 1), 'Slumpa ur ' + g.name) : '<div></div>') : btn(19, 'Tona', 'Tona ut');
+  }
+  return `<div class="vlp">${h}</div>`;
+}
+function vlpPaint() {
+  const f = LP.frame();
+  for (const b of $$('#grid .vlp-btn')) { const v = (f[+b.dataset.cc] || [0, 0])[1], c = LP_CSS[v]; b.classList.toggle('off', !c); if (c) b.style.setProperty('--c', c); }
+}
 function selectGroup(id) { S.curGroup = id; lpPage = 0; save(); $('#main').scrollTop = 0; if (searchQ !== null) closeSearch(); else UI.build(); }
 function applyTileSize() { const s = TILE_PX[S.settings.tileSize] ? S.settings.tileSize : 'm'; document.documentElement.style.setProperty('--tile', TILE_PX[s] + 'px'); document.body.classList.remove('size-s', 'size-m', 'size-l'); document.body.classList.add('size-' + s); }
 
@@ -1277,6 +1308,7 @@ document.addEventListener('pointermove', e => { const s = Brush.stroke; if (s &&
 document.addEventListener('pointerup', () => Brush.end());
 document.addEventListener('pointercancel', () => Brush.end());
 $('#btnBrush').onclick = () => Brush.toggle();
+$('#btnLayout').onclick = () => { S.settings.layout = S.settings.layout === 'lp' ? 'free' : 'lp'; save(); UI.build(); };
 $('#brushDone').onclick = () => Brush.toggle(false);
 $('#brush').addEventListener('click', e => { const b = e.target.closest('[data-brush]'); if (!b) return; Brush.cur = b.dataset.brush; Brush.drawBar(); });
 
@@ -1310,9 +1342,9 @@ $('#main').addEventListener('scroll', () => hold.cancel(), { passive: true });
 $('#grid').addEventListener('pointerdown', e => { hold.fired = false; const el = e.target.closest('.tile[data-t]'); if (!el) return; if (Brush.on) return Brush.start(e); if (editMode) Drag.down(e, el); else if (!moving) hold.start(e, el.dataset.t); });
 $('#grid').addEventListener('click', e => {
   if (hold.fired) { hold.fired = false; return; }
-  if (Brush.on && !e.target.closest('[data-lppage]')) return;
+  if (Brush.on && !e.target.closest('.vlp-btn')) return;
   if (Drag.swallow) return;
-  const pg = e.target.closest('[data-lppage]'); if (pg) { lpPage = +pg.dataset.lppage; UI.build(); return; }   // show that page on the Launchpad
+  const vb = e.target.closest('.vlp-btn'); if (vb) { SP.activate(); AudioL.ensure(); LP.onMsg([0xB0, +vb.dataset.cc, 127]); return; }
   const act = e.target.closest('[data-act]');
   if (act) return act.dataset.act === 'add' ? openAdd() : openMenu(act.dataset.act);
   const el = e.target.closest('.tile'); if (!el) return;
@@ -1715,7 +1747,7 @@ const Menu = {
       ${lineHtml('Håll skärmen tänd', 'sAwake', st.keepAwake)}
       </div>
       <div class="field"><label>Rutnät</label><div class="seg">${[['free', 'Fritt'], ['lp', 'Som Launchpad']].map(([k, n]) => `<button data-layout="${k}" aria-pressed="${(st.layout || 'free') === k}">${n}</button>`).join('')}</div></div>
-      <p class="hint">”Som Launchpad” visar 8 rutor per rad och 7 rader per sida, precis som på plattan. Nedersta raden på plattan är ljudeffekterna.</p>
+      <p class="hint">”Som Launchpad” gör skärmen till en kopia av plattan: en sida i taget, ljudeffekterna längst ner och knapparna runt om. På en dator finns knappen också uppe till höger.</p>
       <div class="field"><label>Rutornas storlek</label><div class="seg">${[['s', 'Små'], ['m', 'Mellan'], ['l', 'Stora']].map(([k, n]) => `<button data-size="${k}" aria-pressed="${st.tileSize === k}">${n}</button>`).join('')}</div></div>`, { back: () => openMenu() });
     const rng = (id, key, unit) => { $('#' + id).oninput = e => { st[key] = +e.target.value; $('#' + id + 'V').textContent = c(st[key]) + unit; save(); if (key === 'musicVol' && Engine.cur) { Mix.base = Engine.vol(Engine.cur.tile); Mix.apply(); } }; };
     rng('sMv', 'musicVol', ' %'); rng('sSv', 'sfxVol', ' %'); rng('sFo', 'fadeOut', ' s'); rng('sFi', 'fadeIn', ' s');
